@@ -226,4 +226,14 @@
     <string name="mock_location_ready_title">Mock location is set up</string>
     <string name="mock_location_ready_message">GPS Locator is already the selected mock location app. To change or clear it, open Developer options and use “Select mock location app”.</string>
     <string name="open_developer_options_action">Open developer options</string>
+    <string name="route_use_gpx_timing">Play with GPX timing</string>
+    <string name="route_outages">GPS outage (%1$d)</string>
+    <string name="route_outages_title">GPS outages (tap an item to delete)</string>
+    <string name="route_outages_hint">Simulate losing the GPS signal (e.g. a tunnel or the subway): from second N the app stops sending locations for M seconds while the traveller keeps moving, so the position jumps afterwards.</string>
+    <string name="route_outage_item">From %1$s, outage %2$s</string>
+    <string name="route_outage_add">Add</string>
+    <string name="route_outage_start_hint">Start (second of playback)</string>
+    <string name="route_outage_duration_hint">Duration (seconds)</string>
+    <string name="route_outage_invalid">Enter a start of 0 or more and a duration of 1 to 86400 seconds</string>
+    <string name="route_outage_removed">Outage removed</string>
 </resources>

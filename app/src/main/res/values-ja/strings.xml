@@ -220,4 +220,14 @@
     <string name="mock_location_ready_title">モック位置情報は設定済みです</string>
     <string name="mock_location_ready_message">GPS ロケーターはすでにモック位置情報アプリに選択されています。変更または解除するには、開発者向けオプションの「モック ロケーション アプリを選択」を開いてください。</string>
     <string name="open_developer_options_action">開発者向けオプションを開く</string>
+    <string name="route_use_gpx_timing">GPX の時刻どおりに再生</string>
+    <string name="route_outages">GPS 途絶（%1$d）</string>
+    <string name="route_outages_title">GPS 途絶（項目をタップで削除）</string>
+    <string name="route_outages_hint">GPS 信号の途絶（トンネルや地下鉄など）を再現します。N 秒目から M 秒間は位置を送信せず、移動は続くため、復旧後に位置が飛びます。</string>
+    <string name="route_outage_item">%1$s から、途絶 %2$s</string>
+    <string name="route_outage_add">追加</string>
+    <string name="route_outage_start_hint">開始（再生の何秒目）</string>
+    <string name="route_outage_duration_hint">継続（秒）</string>
+    <string name="route_outage_invalid">開始は 0 以上、継続は 1〜86400 秒で入力してください</string>
+    <string name="route_outage_removed">途絶を削除しました</string>
 </resources>

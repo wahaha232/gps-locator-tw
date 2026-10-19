@@ -72,7 +72,11 @@ object LocationDocumentCodec {
             routeElement != null -> routeElement.descendantElements("rtept")
             else -> root.descendantElements("wpt")
         }
-        val waypoints = points.mapIndexed { index, point ->
+        // 取樣太密的軌跡（例如每秒一點、上萬點）先均勻抽稀，保留首尾與每個點的原始時間，避免編輯器和儲存負擔過大。
+        val keptIndices = thinIndices(points.size, MAX_IMPORTED_POINTS)
+        val offsets = timeOffsets(points)
+        val waypoints = keptIndices.map { index ->
+            val point = points[index]
             RouteWaypoint(
                 name = point.childText("name").ifBlank { "Point ${index + 1}" },
                 coordinates = Coordinates(
@@ -80,6 +84,7 @@ object LocationDocumentCodec {
                     point.getAttribute("lon").toDouble(),
                 ),
                 stopDurationSeconds = point.descendantText("stopSeconds").toLongOrNull() ?: 0,
+                timeOffsetSeconds = offsets?.get(index),
             )
         }
         val speed = container.descendantText("speedKph").toDoubleOrNull() ?: DEFAULT_SPEED_KPH
@@ -89,7 +94,34 @@ object LocationDocumentCodec {
             waypoints = waypoints,
             speedKph = speed.coerceIn(SimulationRoute.MIN_SPEED_KPH, SimulationRoute.MAX_SPEED_KPH),
             loop = loop,
+            // GPX 每個點都有時間戳記時預設依時間播放，保留原本走走停停的快慢；使用者可以在編輯器切回等速。
+            useGpxTiming = SimulationRoute.hasTiming(waypoints),
         )
+    }
+
+    /** 每個點都有可解析的 <time> 才回傳相對於第一個點的秒數（並確保不倒退）；否則回傳 null。 */
+    private fun timeOffsets(points: List<Element>): List<Long>? {
+        if (points.size < 2) return null
+        val instants = points.map { parseTime(it.childText("time")) ?: return null }
+        val first = instants.first()
+        var running = 0L
+        return instants.map {
+            running = maxOf(running, (it.epochSecond - first.epochSecond).coerceAtLeast(0))
+            running
+        }
+    }
+
+    private fun parseTime(value: String): java.time.Instant? {
+        if (value.isBlank()) return null
+        return runCatching { java.time.Instant.parse(value) }.getOrNull()
+            ?: runCatching { java.time.OffsetDateTime.parse(value).toInstant() }.getOrNull()
+    }
+
+    /** 從 [size] 個點中均勻挑出最多 [max] 個索引，一定包含第一個與最後一個。 */
+    internal fun thinIndices(size: Int, max: Int): List<Int> {
+        if (size <= max) return (0 until size).toList()
+        val step = (size - 1).toDouble() / (max - 1)
+        return (0 until max).map { if (it == max - 1) size - 1 else (it * step).toInt() }.distinct()
     }
 
     private fun importKml(root: Element, fallbackName: String): SimulationRoute {
@@ -204,4 +236,5 @@ object LocationDocumentCodec {
         .replace("'", "&apos;")
 
     private const val DEFAULT_SPEED_KPH = 30.0
+    private const val MAX_IMPORTED_POINTS = 3000
 }

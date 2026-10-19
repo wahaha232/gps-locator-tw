@@ -28,6 +28,7 @@ import com.gpsupdater.app.enterprise.EnterpriseReportGenerator
 import com.gpsupdater.app.enterprise.SimulationOutcome
 import com.gpsupdater.app.enterprise.SimulationRunRepository
 import com.gpsupdater.app.model.Coordinates
+import com.gpsupdater.app.routes.GpsOutagePolicy
 import com.gpsupdater.app.routes.RoutePosition
 import com.gpsupdater.app.routes.RouteRepository
 import com.gpsupdater.app.routes.RouteSimulator
@@ -263,8 +264,10 @@ class MockLocationService : Service() {
         val position = simulator.advance(deltaSeconds)
         coordinates = position.coordinates
         MockLocationPreferences.saveCoordinates(this, coordinates)
-        injectLocation(position)
         val route = activeRoute
+        // GPS 中斷：模擬的人照常前進，但這段時間不送出位置（其他 App 會像真的失去訊號一樣停止收到定位）。
+        val inOutage = route != null && GpsOutagePolicy.isActive(route.outages, position.elapsedSeconds)
+        if (!inOutage) injectLocation(position)
         broadcastStatus(
             STATUS_ROUTE_RUNNING,
             routeId = route?.id,

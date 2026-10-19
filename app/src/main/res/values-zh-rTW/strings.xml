@@ -220,4 +220,14 @@
     <string name="mock_location_ready_title">模擬位置已設定</string>
     <string name="mock_location_ready_message">GPS 定位器已是所選的模擬位置應用程式。如需更換或取消，請到開發人員選項的「選取模擬位置應用程式」。</string>
     <string name="open_developer_options_action">開啟開發人員選項</string>
+    <string name="route_use_gpx_timing">依 GPX 時間播放</string>
+    <string name="route_outages">GPS 中斷（%1$d）</string>
+    <string name="route_outages_title">GPS 中斷（點選項目可刪除）</string>
+    <string name="route_outages_hint">模擬 GPS 訊號中斷（例如隧道、捷運）：從第 N 秒起連續 M 秒不送出位置，但模擬的人照常前進，恢復後位置會跳到前進後的地方。</string>
+    <string name="route_outage_item">第 %1$s 起，中斷 %2$s</string>
+    <string name="route_outage_add">新增</string>
+    <string name="route_outage_start_hint">開始（播放第幾秒）</string>
+    <string name="route_outage_duration_hint">持續（秒）</string>
+    <string name="route_outage_invalid">開始時間需 ≥ 0，持續時間需在 1 到 86400 秒之間</string>
+    <string name="route_outage_removed">已刪除中斷</string>
 </resources>

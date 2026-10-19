@@ -230,4 +230,14 @@
     <string name="mock_location_ready_title">La ubicación simulada está configurada</string>
     <string name="mock_location_ready_message">GPS Locator ya es la app de ubicación simulada seleccionada. Para cambiarla o quitarla, abre Opciones de desarrollador y usa «Seleccionar app de ubicación simulada».</string>
     <string name="open_developer_options_action">Abrir opciones de desarrollador</string>
+    <string name="route_use_gpx_timing">Reproducir con la hora del GPX</string>
+    <string name="route_outages">Pérdida de GPS (%1$d)</string>
+    <string name="route_outages_title">Pérdidas de GPS (toca para borrar)</string>
+    <string name="route_outages_hint">Simula perder la señal GPS (túnel, metro): desde el segundo N no se envía ubicación durante M segundos, pero el recorrido continúa y la posición salta después.</string>
+    <string name="route_outage_item">Desde %1$s, pérdida de %2$s</string>
+    <string name="route_outage_add">Añadir</string>
+    <string name="route_outage_start_hint">Inicio (segundo de la reproducción)</string>
+    <string name="route_outage_duration_hint">Duración (segundos)</string>
+    <string name="route_outage_invalid">Indica un inicio ≥ 0 y una duración de 1 a 86400 segundos</string>
+    <string name="route_outage_removed">Pérdida eliminada</string>
 </resources>

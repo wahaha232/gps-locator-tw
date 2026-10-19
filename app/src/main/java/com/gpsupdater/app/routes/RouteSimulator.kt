@@ -16,6 +16,9 @@ data class RoutePosition(
 
 class RouteSimulator(private val route: SimulationRoute) {
     private val speedMetersPerSecond = route.speedKph / 3.6
+
+    /** 依時間戳記播放：每一段走多久由 GPX 決定，速度因此隨段落變化（含原地停留）。 */
+    private val timed = route.useGpxTiming && SimulationRoute.hasTiming(route.waypoints)
     private val legDistances = buildList {
         for (index in 0 until route.waypoints.lastIndex) {
             add(
@@ -36,10 +39,27 @@ class RouteSimulator(private val route: SimulationRoute) {
     }
     private val totalDistance = legDistances.sum()
 
+    private val timedLegSeconds: List<Double> = if (!timed) {
+        emptyList()
+    } else {
+        buildList {
+            val open = route.waypoints.zipWithNext { a, b -> (b.timeOffsetSeconds!! - a.timeOffsetSeconds!!).toDouble() }
+            addAll(open)
+            if (route.loop) {
+                // 循環路線的「回到起點」那一段 GPX 沒有時間，用整段的平均速度估。
+                val openDistance = legDistances.take(open.size).sum()
+                val openSeconds = open.sum()
+                val average = if (openSeconds > 0 && openDistance > 0) openDistance / openSeconds else speedMetersPerSecond
+                add(legDistances.last() / average)
+            }
+        }
+    }
+    private var timeIntoLeg = 0.0
+
     private var currentWaypointIndex = 0
     private var distanceIntoLeg = 0.0
     private var distanceCompletedInLap = 0.0
-    private var stopRemainingSeconds = route.waypoints.first().stopDurationSeconds.toDouble()
+    private var stopRemainingSeconds = if (timed) 0.0 else route.waypoints.first().stopDurationSeconds.toDouble()
     private var elapsedSeconds = 0.0
     private var lap = 0
     private var complete = false
@@ -48,6 +68,7 @@ class RouteSimulator(private val route: SimulationRoute) {
 
     fun advance(deltaSeconds: Double): RoutePosition {
         require(deltaSeconds.isFinite() && deltaSeconds >= 0)
+        if (timed) return advanceTimed(deltaSeconds)
         var remainingSeconds = deltaSeconds
         var iterations = 0
         while (remainingSeconds > 1e-9 && !complete) {
@@ -93,6 +114,48 @@ class RouteSimulator(private val route: SimulationRoute) {
         return buildPosition()
     }
 
+    private fun advanceTimed(deltaSeconds: Double): RoutePosition {
+        var remainingSeconds = deltaSeconds
+        var iterations = 0
+        while (remainingSeconds > 1e-9 && !complete) {
+            check(iterations++ < MAX_ADVANCE_ITERATIONS) { "Route contains too many zero-length steps" }
+            if (!route.loop && currentWaypointIndex == route.waypoints.lastIndex) {
+                complete = true
+                break
+            }
+            val targetWaypointIndex = (currentWaypointIndex + 1) % route.waypoints.size
+            val legIndex = if (currentWaypointIndex == route.waypoints.lastIndex) {
+                legDistances.lastIndex
+            } else {
+                currentWaypointIndex
+            }
+            val legSeconds = timedLegSeconds[legIndex]
+            val secondsLeft = (legSeconds - timeIntoLeg).coerceAtLeast(0.0)
+            if (secondsLeft <= 1e-9) {
+                arriveTimed(targetWaypointIndex, legDistances[legIndex])
+                continue
+            }
+            if (remainingSeconds < secondsLeft) {
+                timeIntoLeg += remainingSeconds
+                elapsedSeconds += remainingSeconds
+                remainingSeconds = 0.0
+                distanceIntoLeg = legDistances[legIndex] * (timeIntoLeg / legSeconds)
+            } else {
+                remainingSeconds -= secondsLeft
+                elapsedSeconds += secondsLeft
+                arriveTimed(targetWaypointIndex, legDistances[legIndex])
+            }
+        }
+        return buildPosition()
+    }
+
+    private fun arriveTimed(targetWaypointIndex: Int, completedLegDistance: Double) {
+        arriveAt(targetWaypointIndex, completedLegDistance)
+        timeIntoLeg = 0.0
+        stopRemainingSeconds = 0.0
+        if (!route.loop && targetWaypointIndex == route.waypoints.lastIndex) complete = true
+    }
+
     private fun arriveAt(targetWaypointIndex: Int, completedLegDistance: Double) {
         distanceCompletedInLap += completedLegDistance
         currentWaypointIndex = targetWaypointIndex
@@ -134,10 +197,16 @@ class RouteSimulator(private val route: SimulationRoute) {
             totalDistance <= 1e-9 -> 0.0
             else -> ((distanceCompletedInLap + distanceIntoLeg) / totalDistance).coerceIn(0.0, 1.0)
         }
-        val isStopped = stopRemainingSeconds > 1e-9 || complete
+        val legSpeed = if (timed && legIndex >= 0) {
+            val legSeconds = timedLegSeconds[legIndex]
+            if (legSeconds > 1e-9) legDistance / legSeconds else 0.0
+        } else {
+            speedMetersPerSecond
+        }
+        val isStopped = stopRemainingSeconds > 1e-9 || complete || (timed && legSpeed < STOPPED_SPEED_MPS)
         return RoutePosition(
             coordinates = coordinates,
-            speedMetersPerSecond = if (isStopped) 0f else speedMetersPerSecond.toFloat(),
+            speedMetersPerSecond = if (isStopped) 0f else legSpeed.toFloat(),
             bearingDegrees = if (isStopped || legIndex < 0) {
                 0f
             } else {
@@ -154,5 +223,8 @@ class RouteSimulator(private val route: SimulationRoute) {
 
     companion object {
         private const val MAX_ADVANCE_ITERATIONS = 10_000
+
+        /** 依時間播放時，低於這個速度就視為原地停留。 */
+        private const val STOPPED_SPEED_MPS = 0.05
     }
 }

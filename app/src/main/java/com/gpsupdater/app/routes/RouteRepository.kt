@@ -84,6 +84,15 @@ object RouteJsonCodec {
         .put("speedKph", route.speedKph)
         .put("loop", route.loop)
         .put("createdAt", route.createdAt)
+        .put("useGpxTiming", route.useGpxTiming)
+        .put(
+            "outages",
+            JSONArray().apply {
+                route.outages.forEach { outage ->
+                    put(JSONObject().put("startSeconds", outage.startSeconds).put("durationSeconds", outage.durationSeconds))
+                }
+            },
+        )
         .put(
             "waypoints",
             JSONArray().apply {
@@ -94,11 +103,24 @@ object RouteJsonCodec {
                             .put("name", waypoint.name)
                             .put("latitude", waypoint.coordinates.latitude)
                             .put("longitude", waypoint.coordinates.longitude)
-                            .put("stopDurationSeconds", waypoint.stopDurationSeconds),
+                            .put("stopDurationSeconds", waypoint.stopDurationSeconds)
+                            .apply { waypoint.timeOffsetSeconds?.let { put("timeOffsetSeconds", it) } },
                     )
                 }
             },
         )
+
+    private fun decodeOutages(json: JSONObject): List<RouteOutage> {
+        val array = json.optJSONArray("outages") ?: return emptyList()
+        return buildList {
+            for (index in 0 until array.length()) {
+                runCatching {
+                    val item = array.getJSONObject(index)
+                    RouteOutage(item.getLong("startSeconds"), item.getLong("durationSeconds"))
+                }.getOrNull()?.let(::add)
+            }
+        }
+    }
 
     private fun decodeObject(json: JSONObject): SimulationRoute {
         val waypointsJson = json.getJSONArray("waypoints")
@@ -114,6 +136,7 @@ object RouteJsonCodec {
                             waypoint.getDouble("longitude"),
                         ),
                         stopDurationSeconds = waypoint.optLong("stopDurationSeconds", 0),
+                        timeOffsetSeconds = if (waypoint.has("timeOffsetSeconds")) waypoint.getLong("timeOffsetSeconds") else null,
                     ),
                 )
             }
@@ -125,6 +148,8 @@ object RouteJsonCodec {
             speedKph = json.getDouble("speedKph"),
             loop = json.optBoolean("loop", false),
             createdAt = json.optLong("createdAt", System.currentTimeMillis()),
+            useGpxTiming = json.optBoolean("useGpxTiming", false) && SimulationRoute.hasTiming(waypoints),
+            outages = decodeOutages(json),
         )
     }
 }

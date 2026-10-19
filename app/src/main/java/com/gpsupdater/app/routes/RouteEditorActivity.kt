@@ -2,9 +2,12 @@ package com.gpsupdater.app.routes
 
 import android.content.Intent
 import android.os.Bundle
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
+import android.widget.EditText
 import android.widget.FrameLayout
+import android.widget.LinearLayout
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
@@ -21,6 +24,7 @@ import com.gpsupdater.app.databinding.DialogWaypointBinding
 import com.gpsupdater.app.model.Coordinates
 import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.geocoding.MapServiceConfiguration
+import java.util.Locale
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.BoundingBox
@@ -35,6 +39,7 @@ class RouteEditorActivity : AppCompatActivity() {
     private val repository by lazy { RouteRepository(this) }
     private val waypoints = mutableListOf<RouteWaypoint>()
     private val routeOverlays = mutableListOf<Overlay>()
+    private val outages = mutableListOf<RouteOutage>()
     private var editingRouteId: String? = null
     private var editingCreatedAt = System.currentTimeMillis()
     private var pendingExportContent: String? = null
@@ -168,6 +173,8 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.presetRunButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_RUN_KPH }
         binding.presetBikeButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_BIKE_KPH }
         binding.presetCarButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_CAR_KPH }
+        binding.timingSwitch.setOnCheckedChangeListener { _, _ -> refreshTimingUi() }
+        binding.outageButton.setOnClickListener { showOutages() }
         binding.saveStartButton.setOnClickListener { saveAndStart() }
     }
 
@@ -234,6 +241,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.routeNameInput.setText(R.string.sample_route_name)
         binding.speedSlider.value = SAMPLE_ROUTE_SPEED_KPH
         binding.loopSwitch.isChecked = false
+        outages.clear()
         updateEditorState()
         zoomToWaypoints()
         showMessage(getString(R.string.sample_route_loaded))
@@ -253,6 +261,8 @@ class RouteEditorActivity : AppCompatActivity() {
                 speedKph = binding.speedSlider.value.toDouble(),
                 loop = binding.loopSwitch.isChecked,
                 createdAt = editingCreatedAt,
+                useGpxTiming = SimulationRoute.hasTiming(waypoints) && binding.timingSwitch.isChecked,
+                outages = outages.toList(),
             )
         }.getOrElse {
             showMessage(getString(R.string.route_requires_points))
@@ -275,6 +285,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.speedText.text = getString(R.string.route_speed, binding.speedSlider.value.toInt())
         binding.undoButton.isEnabled = waypoints.isNotEmpty()
         binding.sampleRouteButton.visibility = if (waypoints.isEmpty()) View.VISIBLE else View.GONE
+        refreshTimingUi()
         renderRoute()
     }
 
@@ -289,6 +300,7 @@ class RouteEditorActivity : AppCompatActivity() {
             }
         }
         waypoints.forEachIndexed { index, waypoint ->
+            if (waypoints.size > MARKER_LIMIT && index != 0 && index != waypoints.lastIndex) return@forEachIndexed
             routeOverlays += Marker(binding.map).apply {
                 position = GeoPoint(waypoint.coordinates.latitude, waypoint.coordinates.longitude)
                 title = "${index + 1}. ${waypoint.name}"
@@ -381,9 +393,90 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.routeNameInput.setText(route.name)
         binding.speedSlider.value = route.speedKph.toFloat().coerceIn(1f, 160f)
         binding.loopSwitch.isChecked = route.loop
+        outages.clear()
+        outages.addAll(route.outages)
         updateEditorState()
+        binding.timingSwitch.isChecked = route.useGpxTiming
+        refreshTimingUi()
         zoomToWaypoints()
     }
+
+    /** 有時間戳記才顯示「依 GPX 時間播放」；開啟時速度由時間決定，滑桿與預設值按鈕停用。 */
+    private fun refreshTimingUi() {
+        val hasTiming = SimulationRoute.hasTiming(waypoints)
+        binding.timingSwitch.visibility = if (hasTiming) View.VISIBLE else View.GONE
+        if (!hasTiming && binding.timingSwitch.isChecked) binding.timingSwitch.isChecked = false
+        val fixedSpeed = !(hasTiming && binding.timingSwitch.isChecked)
+        listOf(
+            binding.speedSlider,
+            binding.presetWalkButton,
+            binding.presetRunButton,
+            binding.presetBikeButton,
+            binding.presetCarButton,
+        ).forEach {
+            it.isEnabled = fixedSpeed
+            it.alpha = if (fixedSpeed) 1f else 0.4f
+        }
+        binding.speedText.alpha = if (fixedSpeed) 1f else 0.4f
+        binding.outageButton.text = getString(R.string.route_outages, outages.size)
+    }
+
+    private fun showOutages() {
+        val builder = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.route_outages_title)
+            .setPositiveButton(R.string.route_outage_add) { _, _ -> showAddOutage() }
+            .setNegativeButton(R.string.close, null)
+        if (outages.isEmpty()) {
+            builder.setMessage(R.string.route_outages_hint)
+        } else {
+            val labels = outages.map {
+                getString(R.string.route_outage_item, formatClock(it.startSeconds), formatClock(it.durationSeconds))
+            }.toTypedArray()
+            builder.setItems(labels) { _, index ->
+                outages.removeAt(index)
+                updateEditorState()
+                showMessage(getString(R.string.route_outage_removed))
+            }
+        }
+        builder.show()
+    }
+
+    private fun showAddOutage() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), 0)
+        }
+        val start = EditText(this).apply {
+            hint = getString(R.string.route_outage_start_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        val duration = EditText(this).apply {
+            hint = getString(R.string.route_outage_duration_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+        }
+        container.addView(start)
+        container.addView(duration)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.route_outage_add)
+            .setView(container)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.add) { _, _ ->
+                val outage = runCatching {
+                    RouteOutage(start.text.toString().trim().toLong(), duration.text.toString().trim().toLong())
+                }.getOrNull()
+                if (outage == null) {
+                    showMessage(getString(R.string.route_outage_invalid))
+                } else {
+                    outages.add(outage)
+                    outages.sortBy { it.startSeconds }
+                    updateEditorState()
+                }
+            }
+            .show()
+    }
+
+    private fun formatClock(seconds: Long): String =
+        String.format(Locale.US, "%d:%02d", seconds / 60, seconds % 60)
 
     private fun zoomToWaypoints() {
         val points = waypoints.map { GeoPoint(it.coordinates.latitude, it.coordinates.longitude) }
@@ -419,6 +512,7 @@ class RouteEditorActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_ROUTE_ID = "route_id"
         private const val SAMPLE_ROUTE_SPEED_KPH = 24f
+        private const val MARKER_LIMIT = 200
         private const val SPEED_PRESET_WALK_KPH = 5f
         private const val SPEED_PRESET_RUN_KPH = 10f
         private const val SPEED_PRESET_BIKE_KPH = 18f
