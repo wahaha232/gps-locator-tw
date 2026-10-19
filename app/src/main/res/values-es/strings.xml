@@ -21,6 +21,7 @@
     <string name="english">English</string>
     <string name="japanese">日本語</string>
     <string name="spanish">Español</string>
+    <string name="traditional_chinese">繁體中文</string>
     <string name="center_on_device">Usar la ubicación de este dispositivo</string>
     <string name="selected_location">Ubicación seleccionada</string>
     <string name="invalid_coordinates">Introduce coordenadas válidas: latitud de -90 a 90 y longitud de -180 a 180</string>
@@ -220,4 +221,13 @@
     <string name="contact_support">Contactar con soporte</string>
     <string name="support_email_subject">Soporte de Localizador GPS %1$s</string>
     <string name="support_email_open_failed">No hay ninguna aplicación de correo disponible</string>
+    <string name="speed_preset_walk">🚶 Caminar</string>
+    <string name="speed_preset_run">🏃 Correr</string>
+    <string name="speed_preset_bike">🚲 Bici</string>
+    <string name="speed_preset_car">🚗 Coche</string>
+    <string name="mock_location_settings">Ajustes de ubicación simulada</string>
+    <string name="accessibility_settings">Ajustes de accesibilidad</string>
+    <string name="mock_location_ready_title">La ubicación simulada está configurada</string>
+    <string name="mock_location_ready_message">GPS Locator ya es la app de ubicación simulada seleccionada. Para cambiarla o quitarla, abre Opciones de desarrollador y usa «Seleccionar app de ubicación simulada».</string>
+    <string name="open_developer_options_action">Abrir opciones de desarrollador</string>
 </resources>

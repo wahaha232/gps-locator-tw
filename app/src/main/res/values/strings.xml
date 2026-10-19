@@ -21,6 +21,7 @@
     <string name="english">English</string>
     <string name="japanese">日本語</string>
     <string name="spanish">Español</string>
+    <string name="traditional_chinese">Traditional Chinese</string>
     <string name="center_on_device">Use this device location</string>
     <string name="selected_location">Selected location</string>
     <string name="invalid_coordinates">Enter valid coordinates: latitude -90 to 90 and longitude -180 to 180</string>
@@ -216,4 +217,13 @@
     <string name="contact_support">Contact support</string>
     <string name="support_email_subject">GPS Locator %1$s support</string>
     <string name="support_email_open_failed">No email app is available</string>
+    <string name="speed_preset_walk">🚶 Walk</string>
+    <string name="speed_preset_run">🏃 Run</string>
+    <string name="speed_preset_bike">🚲 Bike</string>
+    <string name="speed_preset_car">🚗 Drive</string>
+    <string name="mock_location_settings">Mock location settings</string>
+    <string name="accessibility_settings">Accessibility settings</string>
+    <string name="mock_location_ready_title">Mock location is set up</string>
+    <string name="mock_location_ready_message">GPS Locator is already the selected mock location app. To change or clear it, open Developer options and use “Select mock location app”.</string>
+    <string name="open_developer_options_action">Open developer options</string>
 </resources>

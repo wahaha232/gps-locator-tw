@@ -21,6 +21,7 @@
     <string name="english">English</string>
     <string name="japanese">日本語</string>
     <string name="spanish">Español</string>
+    <string name="traditional_chinese">繁體中文</string>
     <string name="center_on_device">定位到手机当前位置</string>
     <string name="selected_location">所选位置</string>
     <string name="invalid_coordinates">请输入有效经纬度：纬度 -90～90，经度 -180～180</string>
@@ -210,4 +211,13 @@
     <string name="contact_support">联系支持</string>
     <string name="support_email_subject">GPS 定位器 %1$s 支持请求</string>
     <string name="support_email_open_failed">没有可用的邮件应用</string>
+    <string name="speed_preset_walk">🚶 步行</string>
+    <string name="speed_preset_run">🏃 跑步</string>
+    <string name="speed_preset_bike">🚲 骑行</string>
+    <string name="speed_preset_car">🚗 驾车</string>
+    <string name="mock_location_settings">模拟位置设置</string>
+    <string name="accessibility_settings">无障碍设置</string>
+    <string name="mock_location_ready_title">模拟位置已设置</string>
+    <string name="mock_location_ready_message">GPS 定位器已是所选的模拟位置应用。如需更换或取消，请到开发者选项的“选择模拟位置信息应用”。</string>
+    <string name="open_developer_options_action">打开开发者选项</string>
 </resources>

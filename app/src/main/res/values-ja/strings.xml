@@ -21,6 +21,7 @@
     <string name="english">English</string>
     <string name="japanese">日本語</string>
     <string name="spanish">Español</string>
+    <string name="traditional_chinese">繁體中文</string>
     <string name="center_on_device">この端末の位置を使用</string>
     <string name="selected_location">選択した位置</string>
     <string name="invalid_coordinates">有効な座標を入力してください：緯度 -90～90、経度 -180～180</string>
@@ -210,4 +211,13 @@
     <string name="contact_support">サポートに連絡</string>
     <string name="support_email_subject">GPSロケーター %1$s サポート</string>
     <string name="support_email_open_failed">メールアプリが見つかりません</string>
+    <string name="speed_preset_walk">🚶 徒歩</string>
+    <string name="speed_preset_run">🏃 ランニング</string>
+    <string name="speed_preset_bike">🚲 自転車</string>
+    <string name="speed_preset_car">🚗 車</string>
+    <string name="mock_location_settings">モック位置情報の設定</string>
+    <string name="accessibility_settings">ユーザー補助の設定</string>
+    <string name="mock_location_ready_title">モック位置情報は設定済みです</string>
+    <string name="mock_location_ready_message">GPS ロケーターはすでにモック位置情報アプリに選択されています。変更または解除するには、開発者向けオプションの「モック ロケーション アプリを選択」を開いてください。</string>
+    <string name="open_developer_options_action">開発者向けオプションを開く</string>
 </resources>

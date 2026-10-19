@@ -163,6 +163,11 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.speedSlider.addOnChangeListener { _, value, _ ->
             binding.speedText.text = getString(R.string.route_speed, value.toInt())
         }
+        // 速度預設值：走路 5、跑步 10、騎車 18、開車 40 公里/小時；選完仍可用滑桿微調。
+        binding.presetWalkButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_WALK_KPH }
+        binding.presetRunButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_RUN_KPH }
+        binding.presetBikeButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_BIKE_KPH }
+        binding.presetCarButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_CAR_KPH }
         binding.saveStartButton.setOnClickListener { saveAndStart() }
     }
 
@@ -414,5 +419,9 @@ class RouteEditorActivity : AppCompatActivity() {
     companion object {
         const val EXTRA_ROUTE_ID = "route_id"
         private const val SAMPLE_ROUTE_SPEED_KPH = 24f
+        private const val SPEED_PRESET_WALK_KPH = 5f
+        private const val SPEED_PRESET_RUN_KPH = 10f
+        private const val SPEED_PRESET_BIKE_KPH = 18f
+        private const val SPEED_PRESET_CAR_KPH = 40f
     }
 }

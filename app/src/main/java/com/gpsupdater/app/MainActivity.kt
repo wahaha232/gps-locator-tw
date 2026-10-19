@@ -527,6 +527,26 @@ class MainActivity : AppCompatActivity() {
             .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
     }
 
+    /** 設定頁的「模擬位置設定」：還沒設定好就走引導流程，已設定好就說明現況並可前往開發人員選項更換。 */
+    private fun showMockLocationSettings() {
+        if (currentMockLocationSetupStep() != MockLocationSetupStep.READY) {
+            showMockLocationDialog()
+            return
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.mock_location_ready_title)
+            .setMessage(R.string.mock_location_ready_message)
+            .setNegativeButton(R.string.close, null)
+            .setPositiveButton(R.string.open_developer_options_action) { _, _ -> openDeveloperOptions() }
+            .show()
+    }
+
+    /** 設定頁的「無障礙設定」：直接開啟系統的無障礙設定頁。 */
+    private fun openAccessibilitySettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }
+            .onFailure { startActivity(Intent(Settings.ACTION_SETTINGS)) }
+    }
+
     private fun showAppSettings() {
         val options = arrayOf(
             getString(R.string.routes),
@@ -538,6 +558,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.enterprise_license),
             getString(R.string.privacy_and_data),
             getString(R.string.about_and_support),
+            getString(R.string.mock_location_settings),
+            getString(R.string.accessibility_settings),
             getString(R.string.open_developer_options),
         )
         MaterialAlertDialogBuilder(this)
@@ -553,7 +575,9 @@ class MainActivity : AppCompatActivity() {
                     6 -> showEnterpriseLicense()
                     7 -> showPrivacyAndData()
                     8 -> showAboutAndSupport()
-                    9 -> openDeveloperOptions()
+                    9 -> showMockLocationSettings()
+                    10 -> openAccessibilitySettings()
+                    11 -> openDeveloperOptions()
                 }
             }
             .setNegativeButton(R.string.close, null)
@@ -1124,6 +1148,7 @@ class MainActivity : AppCompatActivity() {
     private fun showLanguageDialog() {
         val languages = listOf(
             "" to R.string.follow_system,
+            "zh-TW" to R.string.traditional_chinese,
             "zh-CN" to R.string.simplified_chinese,
             "en" to R.string.english,
             "ja" to R.string.japanese,
@@ -1134,7 +1159,10 @@ class MainActivity : AppCompatActivity() {
             .toLanguageTags()
             .lowercase()
         val selectedIndex = languages.indexOfFirst { (tag, _) ->
-            tag.isNotEmpty() && currentLanguage.startsWith(tag.substringBefore('-').lowercase())
+            tag.isNotEmpty() && (
+                currentLanguage == tag.lowercase() ||
+                (!tag.contains('-') && currentLanguage.startsWith(tag.lowercase()))
+            )
         }.coerceAtLeast(0)
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.select_language)
