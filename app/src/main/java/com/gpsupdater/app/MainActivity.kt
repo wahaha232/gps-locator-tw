@@ -54,6 +54,7 @@ import com.gpsupdater.app.location.MockLocationSetupPolicy
 import com.gpsupdater.app.location.MockLocationSetupStep
 import com.gpsupdater.app.location.MockLocationService
 import com.gpsupdater.app.model.Coordinates
+import com.gpsupdater.app.util.BoundedIo
 import com.gpsupdater.app.product.EntitlementRepository
 import com.gpsupdater.app.product.ProductFeature
 import com.gpsupdater.app.privacy.LocalTestDataCleaner
@@ -141,7 +142,8 @@ class MainActivity : AppCompatActivity() {
     ) { uri ->
         if (uri == null) return@registerForActivityResult
         val document = runCatching {
-            contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() }
+            contentResolver.openInputStream(uri)
+                ?.use { BoundedIo.readText(it, BoundedIo.LICENSE_DOCUMENT_MAX_BYTES) }
                 ?: error("Empty license")
         }.getOrNull()
         val result = document?.let(entitlementRepository::activateEnterpriseLicense)

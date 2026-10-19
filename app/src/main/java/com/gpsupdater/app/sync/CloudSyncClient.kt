@@ -1,5 +1,6 @@
 package com.gpsupdater.app.sync
 
+import com.gpsupdater.app.util.BoundedIo
 import android.content.Context
 import android.os.Handler
 import android.os.Looper
@@ -73,9 +74,9 @@ class CloudSyncClient(
             }
             val responseCode = connection.responseCode
             val responseBody = if (responseCode in 200..299) {
-                connection.inputStream.bufferedReader().use { it.readText() }
+                connection.inputStream.use { BoundedIo.readText(it, BoundedIo.CLOUD_RESPONSE_MAX_BYTES) }
             } else {
-                connection.errorStream?.bufferedReader()?.use { it.readText() }.orEmpty()
+                connection.errorStream?.use { BoundedIo.readText(it, BoundedIo.GEOCODER_RESPONSE_MAX_BYTES) }.orEmpty()
             }
             if (responseCode !in 200..299) {
                 throw SyncHttpException(responseCode, responseBody)

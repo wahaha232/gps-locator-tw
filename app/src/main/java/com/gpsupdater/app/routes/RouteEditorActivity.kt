@@ -23,6 +23,7 @@ import com.gpsupdater.app.R
 import com.gpsupdater.app.databinding.ActivityRouteEditorBinding
 import com.gpsupdater.app.databinding.DialogWaypointBinding
 import com.gpsupdater.app.model.Coordinates
+import com.gpsupdater.app.util.BoundedIo
 import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.geocoding.MapServiceConfiguration
 import java.util.Locale
@@ -51,8 +52,7 @@ class RouteEditorActivity : AppCompatActivity() {
         if (uri == null) return@registerForActivityResult
         runCatching {
             val content = contentResolver.openInputStream(uri)
-                ?.bufferedReader()
-                ?.use { it.readText() }
+                ?.use { BoundedIo.readText(it, BoundedIo.ROUTE_DOCUMENT_MAX_BYTES) }
                 ?: error("Empty document")
             val fallbackName = uri.lastPathSegment
                 ?.substringAfterLast('/')

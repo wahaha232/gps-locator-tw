@@ -54,6 +54,7 @@ class EnterpriseControlReceiver : BroadcastReceiver() {
         ) ?: return reject(RESULT_INVALID_PAYLOAD, "invalid_coordinates")
         val name = decodeName(intent)
             .getOrElse { return reject(RESULT_INVALID_PAYLOAD, "invalid_name") }
+        if ((name?.length ?: 0) > MAX_NAME_CHARS) return reject(RESULT_INVALID_PAYLOAD, "invalid_name")
         ContextCompat.startForegroundService(
             context,
             MockLocationService.startIntent(
@@ -68,6 +69,7 @@ class EnterpriseControlReceiver : BroadcastReceiver() {
     private fun startRoute(context: Context, intent: Intent) {
         val encoded = intent.getStringExtra(EXTRA_ROUTE_DOCUMENT)
             ?: return reject(RESULT_INVALID_PAYLOAD, "missing_route_document")
+        if (encoded.length > MAX_ROUTE_DOCUMENT_CHARS) return reject(RESULT_INVALID_PAYLOAD, "route_document_too_large")
         val value = runCatching {
             Base64.getUrlDecoder().decode(encoded).toString(Charsets.UTF_8)
         }.getOrNull() ?: return reject(RESULT_INVALID_PAYLOAD, "invalid_route_document")
@@ -75,6 +77,7 @@ class EnterpriseControlReceiver : BroadcastReceiver() {
             .getOrElse { return reject(RESULT_INVALID_PAYLOAD, "invalid_name") }
             .orEmpty()
             .ifBlank { "ADB route" }
+        if (fallbackName.length > MAX_NAME_CHARS) return reject(RESULT_INVALID_PAYLOAD, "invalid_name")
         val route = RouteJsonCodec.decode(value)
             ?: runCatching { LocationDocumentCodec.import(value, fallbackName) }.getOrNull()
             ?: return reject(RESULT_INVALID_PAYLOAD, "unsupported_route_document")
@@ -131,6 +134,10 @@ class EnterpriseControlReceiver : BroadcastReceiver() {
     }
 
     companion object {
+        /** 外部（ADB）傳入的名稱與路線文件長度上限；Binder 本身也有約 1 MB 的限制，這裡再明確拒絕過大的內容。 */
+        private const val MAX_NAME_CHARS = 200
+        private const val MAX_ROUTE_DOCUMENT_CHARS = 3_000_000
+
         const val ACTION_SET_LOCATION = "com.gpsupdater.app.enterprise.SET_LOCATION"
         const val ACTION_START_ROUTE = "com.gpsupdater.app.enterprise.START_ROUTE"
         const val ACTION_STOP = "com.gpsupdater.app.enterprise.STOP"

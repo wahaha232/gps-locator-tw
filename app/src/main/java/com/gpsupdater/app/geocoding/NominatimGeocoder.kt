@@ -4,10 +4,11 @@ import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import com.gpsupdater.app.BuildConfig
+import com.gpsupdater.app.util.BoundedIo
+import com.gpsupdater.app.util.BoundedLruMap
 import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
-import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
@@ -15,7 +16,8 @@ class NominatimGeocoder(
     private val executor: ExecutorService = Executors.newSingleThreadExecutor(),
 ) : GeocodingService, AutoCloseable {
     private val mainHandler = Handler(Looper.getMainLooper())
-    private val cache = ConcurrentHashMap<String, List<GeocodingResult>>()
+    // 長時間使用也不會無限長大：只保留最近用到的搜尋結果。
+    private val cache = BoundedLruMap<String, List<GeocodingResult>>(CACHE_MAX_ENTRIES)
     private var lastRequestStartedAt = 0L
 
     override fun search(
@@ -125,7 +127,7 @@ class NominatimGeocoder(
             if (connection.responseCode !in 200..299) {
                 throw IOException("Geocoder returned HTTP ${connection.responseCode}")
             }
-            val body = connection.inputStream.bufferedReader().use { it.readText() }
+            val body = connection.inputStream.use { BoundedIo.readText(it, BoundedIo.GEOCODER_RESPONSE_MAX_BYTES) }
             return GeocodingResponseParser.parse(body)
         } finally {
             connection.disconnect()
@@ -142,6 +144,7 @@ class NominatimGeocoder(
 
     companion object {
         private const val RESULT_LIMIT = 12
+        private const val CACHE_MAX_ENTRIES = 200
         private const val SUGGESTION_LIMIT = 8
         private const val CONNECT_TIMEOUT_MS = 10_000
         private const val READ_TIMEOUT_MS = 15_000
