@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="brand">#4FD1DB</color>
+    <color name="on_brand">#00363B</color>
+    <color name="brand_container">#12494F</color>
+    <color name="on_brand_container">#BDEFF3</color>
+    <color name="accent">#FF9A78</color>
+    <color name="accent_container">#4A2A1E</color>
+    <color name="on_accent_container">#FFD9CC</color>
+    <color name="success">#4ADE80</color>
+    <color name="danger">#FF7B7B</color>
+    <color name="surface">#142124</color>
+    <color name="surface_variant">#1F3134</color>
+    <color name="surface_overlay">#F0142124</color>
+    <color name="text_primary">#E6F0F0</color>
+    <color name="text_secondary">#A3B5B6</color>
+    <color name="divider">#2B4144</color>
+</resources>

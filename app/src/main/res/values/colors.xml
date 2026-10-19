@@ -1,12 +1,23 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="forest_700">#146B55</color>
-    <color name="forest_600">#1B7D64</color>
-    <color name="coral_600">#D9583B</color>
-    <color name="charcoal_900">#18201E</color>
-    <color name="charcoal_600">#56615E</color>
+    <!-- 品牌：青綠藍；強調：暖珊瑚 -->
+    <color name="brand">#0E7C86</color>
+    <color name="on_brand">#FFFFFF</color>
+    <color name="brand_container">#D4EFF1</color>
+    <color name="on_brand_container">#07494F</color>
+    <color name="accent">#E8643A</color>
+    <color name="accent_container">#FFE4D8</color>
+    <color name="on_accent_container">#7A2E12</color>
+    <color name="success">#16A34A</color>
+    <color name="danger">#D93636</color>
+    <!-- 表面與文字 -->
+    <color name="surface">#FFFFFF</color>
+    <color name="surface_variant">#EAF2F3</color>
+    <color name="surface_overlay">#F2FFFFFF</color>
+    <color name="text_primary">#10201F</color>
+    <color name="text_secondary">#566767</color>
+    <color name="divider">#D6E1E2</color>
     <color name="white">#FFFFFF</color>
-    <color name="danger_600">#B3261E</color>
-    <color name="overlay_white">#F7FFFFFF</color>
-    <color name="divider">#DDE3E1</color>
+    <!-- 啟動圖示背景：固定色，不隨深色模式改變 -->
+    <color name="launcher_background">#0E7C86</color>
 </resources>

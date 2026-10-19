@@ -1,6 +1,7 @@
 package com.gpsupdater.app.routes
 
 import android.content.Intent
+import android.content.res.ColorStateList
 import android.os.Bundle
 import android.text.InputType
 import android.view.LayoutInflater
@@ -167,6 +168,7 @@ class RouteEditorActivity : AppCompatActivity() {
         }
         binding.speedSlider.addOnChangeListener { _, value, _ ->
             binding.speedText.text = getString(R.string.route_speed, value.toInt())
+            highlightSpeedPreset()
         }
         // 速度預設值：走路 5、跑步 10、騎車 18、開車 40 公里/小時；選完仍可用滑桿微調。
         binding.presetWalkButton.setOnClickListener { binding.speedSlider.value = SPEED_PRESET_WALK_KPH }
@@ -297,7 +299,7 @@ class RouteEditorActivity : AppCompatActivity() {
         if (waypoints.size >= 2) {
             routeOverlays += Polyline(binding.map).apply {
                 setPoints(waypoints.map { GeoPoint(it.coordinates.latitude, it.coordinates.longitude) })
-                outlinePaint.color = getColor(R.color.forest_700)
+                outlinePaint.color = getColor(R.color.brand)
                 outlinePaint.strokeWidth = dp(5).toFloat()
             }
         }
@@ -424,6 +426,22 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.naturalSwitch.isEnabled = fixedSpeed
         binding.naturalSwitch.alpha = if (fixedSpeed) 1f else 0.4f
         binding.outageButton.text = getString(R.string.route_outages, outages.size)
+        highlightSpeedPreset()
+    }
+
+    /** 目前速度剛好等於某個預設值時，把那顆按鈕標成選取狀態。 */
+    private fun highlightSpeedPreset() {
+        val value = binding.speedSlider.value
+        listOf(
+            binding.presetWalkButton to SPEED_PRESET_WALK_KPH,
+            binding.presetRunButton to SPEED_PRESET_RUN_KPH,
+            binding.presetBikeButton to SPEED_PRESET_BIKE_KPH,
+            binding.presetCarButton to SPEED_PRESET_CAR_KPH,
+        ).forEach { (button, kph) ->
+            val selected = binding.speedSlider.isEnabled && kotlin.math.abs(value - kph) < 0.5f
+            button.backgroundTintList = ColorStateList.valueOf(getColor(if (selected) R.color.brand else R.color.brand_container))
+            button.setTextColor(getColor(if (selected) R.color.on_brand else R.color.on_brand_container))
+        }
     }
 
     private fun showOutages() {

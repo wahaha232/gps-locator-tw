@@ -20,7 +20,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/charcoal_900"
+            android:textColor="@color/text_primary"
             android:textSize="15sp"
             android:textStyle="bold" />
 
@@ -30,7 +30,7 @@
             android:layout_height="wrap_content"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/forest_700"
+            android:textColor="@color/brand"
             android:textSize="11sp"
             android:visibility="gone" />
 
@@ -41,7 +41,7 @@
             android:layout_marginTop="3dp"
             android:ellipsize="end"
             android:maxLines="1"
-            android:textColor="@color/charcoal_600"
+            android:textColor="@color/text_secondary"
             android:textSize="12sp" />
     </LinearLayout>
 
@@ -53,7 +53,7 @@
         android:contentDescription="@string/use_saved_location"
         android:padding="13dp"
         android:src="@drawable/ic_play"
-        app:tint="@color/forest_700" />
+        app:tint="@color/brand" />
 
     <ImageButton
         android:id="@+id/deleteButton"
@@ -63,6 +63,6 @@
         android:contentDescription="@string/delete_saved_location"
         android:padding="13dp"
         android:src="@drawable/ic_delete"
-        app:tint="@color/danger_600" />
+        app:tint="@color/danger" />
 
 </LinearLayout>

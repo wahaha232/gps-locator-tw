@@ -408,6 +408,7 @@ class MainActivity : AppCompatActivity() {
             showMessage(getString(R.string.mock_stopped))
         }
         binding.developerSettingsButton.setOnClickListener { showAppSettings() }
+        binding.titleBlock.setOnClickListener { showRegionSearch() }
         binding.regionSearchButton.setOnClickListener { showRegionSearch() }
         binding.routeButton.setOnClickListener { openRouteEditor() }
         binding.favoritesButton.setOnClickListener { showFavorites() }
