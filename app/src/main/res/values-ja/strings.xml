@@ -237,4 +237,7 @@
     <string name="playback_info_total">再生 %1$s / %2$s · 残り %3$s · %4$d km/h</string>
     <string name="playback_info_open">再生 %1$s · %2$d km/h</string>
     <string name="playback_paused">一時停止中</string>
+    <string name="route_importing">ルートを読み込んで簡略化しています…</string>
+    <string name="route_import_simplified">ルートを読み込みました：%1$d 点を %2$d 点に簡略化</string>
+    <string name="route_import_cancelled">読み込みをキャンセルしました</string>
 </resources>

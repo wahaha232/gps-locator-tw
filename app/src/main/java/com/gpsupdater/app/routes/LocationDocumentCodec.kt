@@ -2,7 +2,10 @@ package com.gpsupdater.app.routes
 
 import com.gpsupdater.app.model.Coordinates
 import org.w3c.dom.Element
+import com.gpsupdater.app.util.BoundedIo
+import java.io.BufferedInputStream
 import java.io.ByteArrayInputStream
+import java.io.InputStream
 import javax.xml.parsers.DocumentBuilderFactory
 
 enum class LocationDocumentFormat {
@@ -19,15 +22,50 @@ object LocationDocumentCodec {
     fun import(value: String, fallbackName: String = "Imported route"): SimulationRoute {
         require(!value.contains("<!DOCTYPE", ignoreCase = true)) { "DOCTYPE is not allowed" }
         require(!value.contains("<!ENTITY", ignoreCase = true)) { "Entities are not allowed" }
+        val bytes = value.toByteArray(Charsets.UTF_8)
+        if (GpxStreamImporter.looksLikeGpx(bytes, minOf(bytes.size, 8_192))) {
+            return GpxStreamImporter.import(ByteArrayInputStream(bytes), fallbackName).route
+        }
         val document = secureDocumentBuilderFactory()
             .newDocumentBuilder()
-            .parse(ByteArrayInputStream(value.toByteArray(Charsets.UTF_8)))
+            .parse(ByteArrayInputStream(bytes))
         val root = document.documentElement
         return when (root.localName?.lowercase() ?: root.tagName.lowercase()) {
-            "gpx" -> importGpx(root, fallbackName)
             "kml" -> importKml(root, fallbackName)
             else -> error("Unsupported location document")
         }
+    }
+
+    /**
+     * 從串流匯入路線。GPX 走串流解析：邊讀邊簡化，大小上限 [BoundedIo.GPX_STREAM_MAX_BYTES]（300 MB），
+     * 十萬點以上也能匯入，最後留下最多 [GpxStreamImporter.MAX_POINTS] 個點。其他格式（KML、本 App 的 JSON）
+     * 仍整份讀進來處理，大小上限 [BoundedIo.ROUTE_DOCUMENT_MAX_BYTES]。
+     */
+    fun importStream(
+        stream: InputStream,
+        fallbackName: String = "Imported route",
+        isCancelled: () -> Boolean = { false },
+    ): GpxImportResult {
+        val input = BufferedInputStream(stream, 64 * 1024)
+        input.mark(8_193)
+        val head = ByteArray(8_192)
+        var read = 0
+        while (read < head.size) {
+            val count = input.read(head, read, head.size - read)
+            if (count < 0) break
+            read += count
+        }
+        input.reset()
+        if (GpxStreamImporter.looksLikeGpx(head, read)) {
+            return GpxStreamImporter.import(
+                BoundedIo.limit(input, BoundedIo.GPX_STREAM_MAX_BYTES),
+                fallbackName,
+                isCancelled = isCancelled,
+            )
+        }
+        val text = BoundedIo.readText(input, BoundedIo.ROUTE_DOCUMENT_MAX_BYTES)
+        val route = RouteJsonCodec.decode(text) ?: import(text, fallbackName)
+        return GpxImportResult(route, route.waypoints.size.toLong())
     }
 
     private fun exportGpx(route: SimulationRoute): String = buildString {
@@ -63,60 +101,6 @@ object LocationDocumentCodec {
         append("</Document></kml>\n")
     }
 
-    private fun importGpx(root: Element, fallbackName: String): SimulationRoute {
-        val track = root.elements("trk").firstOrNull()
-        val routeElement = root.elements("rte").firstOrNull()
-        val container = track ?: routeElement ?: root
-        val points = when {
-            track != null -> track.descendantElements("trkpt")
-            routeElement != null -> routeElement.descendantElements("rtept")
-            else -> root.descendantElements("wpt")
-        }
-        // 取樣太密的軌跡（例如每秒一點、上萬點）先均勻抽稀，保留首尾與每個點的原始時間，避免編輯器和儲存負擔過大。
-        val keptIndices = thinIndices(points.size, MAX_IMPORTED_POINTS)
-        val offsets = timeOffsets(points)
-        val waypoints = keptIndices.map { index ->
-            val point = points[index]
-            RouteWaypoint(
-                name = point.childText("name").ifBlank { "Point ${index + 1}" },
-                coordinates = Coordinates(
-                    point.getAttribute("lat").toDouble(),
-                    point.getAttribute("lon").toDouble(),
-                ),
-                stopDurationSeconds = point.descendantText("stopSeconds").toLongOrNull() ?: 0,
-                timeOffsetSeconds = offsets?.get(index),
-            )
-        }
-        val speed = container.descendantText("speedKph").toDoubleOrNull() ?: DEFAULT_SPEED_KPH
-        val loop = container.descendantText("loop").toBooleanStrictOrNull() ?: false
-        return SimulationRoute(
-            name = container.childText("name").ifBlank { fallbackName },
-            waypoints = waypoints,
-            speedKph = speed.coerceIn(SimulationRoute.MIN_SPEED_KPH, SimulationRoute.MAX_SPEED_KPH),
-            loop = loop,
-            // GPX 每個點都有時間戳記時預設依時間播放，保留原本走走停停的快慢；使用者可以在編輯器切回等速。
-            useGpxTiming = SimulationRoute.hasTiming(waypoints),
-        )
-    }
-
-    /** 每個點都有可解析的 <time> 才回傳相對於第一個點的秒數（並確保不倒退）；否則回傳 null。 */
-    private fun timeOffsets(points: List<Element>): List<Long>? {
-        if (points.size < 2) return null
-        val instants = points.map { parseTime(it.childText("time")) ?: return null }
-        val first = instants.first()
-        var running = 0L
-        return instants.map {
-            running = maxOf(running, (it.epochSecond - first.epochSecond).coerceAtLeast(0))
-            running
-        }
-    }
-
-    private fun parseTime(value: String): java.time.Instant? {
-        if (value.isBlank()) return null
-        return runCatching { java.time.Instant.parse(value) }.getOrNull()
-            ?: runCatching { java.time.OffsetDateTime.parse(value).toInstant() }.getOrNull()
-    }
-
     /** 從 [size] 個點中均勻挑出最多 [max] 個索引，一定包含第一個與最後一個。 */
     internal fun thinIndices(size: Int, max: Int): List<Int> {
         if (size <= max) return (0 until size).toList()
@@ -128,7 +112,7 @@ object LocationDocumentCodec {
         val document = root.descendantElements("Document").firstOrNull() ?: root
         val placemarks = document.descendantElements("Placemark")
         val pointPlacemarks = placemarks.filter { it.descendantElements("Point").isNotEmpty() }
-        val waypoints = if (pointPlacemarks.isNotEmpty()) {
+        val allWaypoints = if (pointPlacemarks.isNotEmpty()) {
             pointPlacemarks
                 .sortedBy { it.dataValue("order")?.toIntOrNull() ?: Int.MAX_VALUE }
                 .mapIndexed { index, placemark ->
@@ -157,6 +141,8 @@ object LocationDocumentCodec {
                 )
             }
         }
+        // 點太多就均勻抽稀（保留首尾），和 GPX 一致。
+        val waypoints = thinIndices(allWaypoints.size, MAX_IMPORTED_POINTS).map { allWaypoints[it] }
         val speed = document.dataValue("speedKph")?.toDoubleOrNull() ?: DEFAULT_SPEED_KPH
         val loop = document.dataValue("loop")?.toBooleanStrictOrNull() ?: false
         return SimulationRoute(
@@ -236,5 +222,5 @@ object LocationDocumentCodec {
         .replace("'", "&apos;")
 
     private const val DEFAULT_SPEED_KPH = 30.0
-    private const val MAX_IMPORTED_POINTS = 3000
+    private const val MAX_IMPORTED_POINTS = GpxStreamImporter.MAX_POINTS
 }

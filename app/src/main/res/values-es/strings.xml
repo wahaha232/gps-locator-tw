@@ -247,4 +247,7 @@
     <string name="playback_info_total">Reproducido %1$s / %2$s · faltan %3$s · %4$d km/h</string>
     <string name="playback_info_open">Reproducido %1$s · %2$d km/h</string>
     <string name="playback_paused">En pausa</string>
+    <string name="route_importing">Importando y simplificando la ruta…</string>
+    <string name="route_import_simplified">Ruta importada: %1$d puntos simplificados a %2$d puntos</string>
+    <string name="route_import_cancelled">Importación cancelada</string>
 </resources>

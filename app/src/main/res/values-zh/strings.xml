@@ -237,4 +237,7 @@
     <string name="playback_info_total">已播放 %1$s / %2$s · 剩余 %3$s · %4$d 公里/小时</string>
     <string name="playback_info_open">已播放 %1$s · %2$d 公里/小时</string>
     <string name="playback_paused">已暂停</string>
+    <string name="route_importing">正在导入并简化路线…</string>
+    <string name="route_import_simplified">路线已导入：原本 %1$d 个点，已简化为 %2$d 个点</string>
+    <string name="route_import_cancelled">已取消导入</string>
 </resources>

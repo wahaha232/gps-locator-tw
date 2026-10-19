@@ -23,10 +23,11 @@ import com.gpsupdater.app.R
 import com.gpsupdater.app.databinding.ActivityRouteEditorBinding
 import com.gpsupdater.app.databinding.DialogWaypointBinding
 import com.gpsupdater.app.model.Coordinates
-import com.gpsupdater.app.util.BoundedIo
 import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.geocoding.MapServiceConfiguration
 import java.util.Locale
+import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicBoolean
 import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.BoundingBox
@@ -46,27 +47,72 @@ class RouteEditorActivity : AppCompatActivity() {
     private var editingCreatedAt = System.currentTimeMillis()
     private var pendingExportContent: String? = null
 
+    private val importExecutor = Executors.newSingleThreadExecutor()
+    private val importCancelled = AtomicBoolean(false)
+
     private val importDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
         if (uri == null) return@registerForActivityResult
-        runCatching {
-            val content = contentResolver.openInputStream(uri)
-                ?.use { BoundedIo.readText(it, BoundedIo.ROUTE_DOCUMENT_MAX_BYTES) }
-                ?: error("Empty document")
-            val fallbackName = uri.lastPathSegment
-                ?.substringAfterLast('/')
-                ?.substringBeforeLast('.')
-                .orEmpty()
-                .ifBlank { getString(R.string.new_route_name) }
-            LocationDocumentCodec.import(content, fallbackName)
-        }.onSuccess { route ->
-            repository.save(route)
-            loadRoute(route)
-            showMessage(getString(R.string.route_imported))
-        }.onFailure {
-            showMessage(getString(R.string.route_import_failed))
+        val fallbackName = uri.lastPathSegment
+            ?.substringAfterLast('/')
+            ?.substringBeforeLast('.')
+            .orEmpty()
+            .ifBlank { getString(R.string.new_route_name) }
+        importCancelled.set(false)
+        val progress = showImportProgress()
+        // 大檔案（幾十 MB、十萬點以上的 GPX）要邊讀邊簡化，放在背景執行，畫面才不會卡住；使用者可以取消。
+        importExecutor.execute {
+            val result = runCatching {
+                contentResolver.openInputStream(uri)?.use { input ->
+                    LocationDocumentCodec.importStream(input, fallbackName) { importCancelled.get() }
+                } ?: error("Empty document")
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                progress.dismiss()
+                result.onSuccess { imported ->
+                    repository.save(imported.route)
+                    loadRoute(imported.route)
+                    showMessage(
+                        if (imported.wasSimplified) {
+                            getString(R.string.route_import_simplified, imported.originalPointCount, imported.keptPointCount)
+                        } else {
+                            getString(R.string.route_imported)
+                        },
+                    )
+                }.onFailure { error ->
+                    showMessage(
+                        getString(
+                            if (error is ImportCancelledException) R.string.route_import_cancelled else R.string.route_import_failed,
+                        ),
+                    )
+                }
+            }
         }
+    }
+
+    private fun showImportProgress(): androidx.appcompat.app.AlertDialog {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = android.view.Gravity.CENTER_VERTICAL
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+        }
+        container.addView(
+            com.google.android.material.progressindicator.CircularProgressIndicator(this).apply { isIndeterminate = true },
+        )
+        container.addView(
+            android.widget.TextView(this).apply {
+                setText(R.string.route_importing)
+                setPadding(dp(16), 0, 0, 0)
+            },
+        )
+        return MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.import_route)
+            .setView(container)
+            .setCancelable(false)
+            .setNegativeButton(R.string.cancel) { _, _ -> importCancelled.set(true) }
+            .show()
     }
 
     private val exportDocumentLauncher = registerForActivityResult(
@@ -109,6 +155,8 @@ class RouteEditorActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        importCancelled.set(true)
+        importExecutor.shutdownNow()
         binding.map.onDetach()
         super.onDestroy()
     }

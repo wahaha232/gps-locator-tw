@@ -243,4 +243,7 @@
     <string name="playback_info_total">Played %1$s / %2$s · %3$s left · %4$d km/h</string>
     <string name="playback_info_open">Played %1$s · %2$d km/h</string>
     <string name="playback_paused">Paused</string>
+    <string name="route_importing">Importing and simplifying the route…</string>
+    <string name="route_import_simplified">Route imported: %1$d points simplified to %2$d points</string>
+    <string name="route_import_cancelled">Import cancelled</string>
 </resources>
