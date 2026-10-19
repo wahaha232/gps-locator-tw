@@ -514,6 +514,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureFloatingControls() {
         configurePlaybackControls()
+        binding.zoomInButton.setOnClickListener { binding.map.controller.zoomIn() }
+        binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
         binding.controlPanel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
             val panelHeight = bottom - top
             binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {

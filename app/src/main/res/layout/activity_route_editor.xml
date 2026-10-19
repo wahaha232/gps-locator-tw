@@ -72,6 +72,39 @@
         android:src="@drawable/ic_map_pin"
         android:translationY="-28dp" />
 
+    <LinearLayout
+        android:id="@+id/zoomControls"
+        android:layout_width="52dp"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|center_vertical"
+        android:layout_marginEnd="16dp"
+        android:background="@drawable/bg_zoom_group"
+        android:clipToOutline="true"
+        android:elevation="8dp"
+        android:orientation="vertical">
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/zoomInButton"
+            style="@style/Widget.GpsUpdater.Button.Zoom"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:contentDescription="@string/zoom_in"
+            android:text="+" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="1dp"
+            android:background="@color/divider" />
+
+        <com.google.android.material.button.MaterialButton
+            android:id="@+id/zoomOutButton"
+            style="@style/Widget.GpsUpdater.Button.Zoom"
+            android:layout_width="52dp"
+            android:layout_height="52dp"
+            android:contentDescription="@string/zoom_out"
+            android:text="−" />
+    </LinearLayout>
+
     <TextView
         android:id="@+id/attributionText"
         android:layout_width="wrap_content"

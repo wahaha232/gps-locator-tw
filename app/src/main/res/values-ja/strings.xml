@@ -251,4 +251,7 @@
     <string name="scan_pick_folder">フォルダを選んでスキャン</string>
     <string name="scan_no_results">GPX ファイルが見つかりません</string>
     <string name="scan_item_details">%1$s · %2$s</string>
+    <string name="route_import_failed_reason">このルートファイルを読み込めません：%1$s</string>
+    <string name="zoom_in">地図を拡大</string>
+    <string name="zoom_out">地図を縮小</string>
 </resources>

@@ -251,4 +251,7 @@
     <string name="scan_pick_folder">選擇資料夾掃描</string>
     <string name="scan_no_results">沒有找到 GPX 檔案</string>
     <string name="scan_item_details">%1$s · %2$s</string>
+    <string name="route_import_failed_reason">無法匯入此路線檔案：%1$s</string>
+    <string name="zoom_in">放大地圖</string>
+    <string name="zoom_out">縮小地圖</string>
 </resources>

@@ -313,7 +313,7 @@ class RegionSearchDialog(
     }
 
     companion object {
-        private const val DEFAULT_COUNTRY_CODE = "CN"
+        private const val DEFAULT_COUNTRY_CODE = "TW"
         private const val MIN_SUGGESTION_LENGTH = 2
         private const val SUGGESTION_DELAY_MS = 450L
     }

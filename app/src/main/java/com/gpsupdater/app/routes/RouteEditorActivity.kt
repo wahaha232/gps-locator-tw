@@ -93,11 +93,13 @@ class RouteEditorActivity : AppCompatActivity() {
                         },
                     )
                 }.onFailure { error ->
-                    showMessage(
-                        getString(
-                            if (error is ImportCancelledException) R.string.route_import_cancelled else R.string.route_import_failed,
-                        ),
-                    )
+                    if (error is ImportCancelledException) {
+                        showMessage(getString(R.string.route_import_cancelled))
+                    } else {
+                        android.util.Log.e("GpsLocatorImport", "route import failed: $uri", error)
+                        val reason = (error.message ?: error.javaClass.simpleName).lineSequence().first().take(120)
+                        showMessage(getString(R.string.route_import_failed_reason, reason))
+                    }
                 }
             }
         }
@@ -218,6 +220,8 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.backButton.setOnClickListener { finish() }
         binding.savedRoutesButton.setOnClickListener { showSavedRoutes() }
         binding.sampleRouteButton.setOnClickListener { loadSampleRoute() }
+        binding.zoomInButton.setOnClickListener { binding.map.controller.zoomIn() }
+        binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
         binding.scanGpxButton.setOnClickListener { scanGpxLauncher.launch(GpxScanActivity.intent(this)) }
         binding.addWaypointButton.setOnClickListener { showAddWaypointDialog() }
         binding.undoButton.setOnClickListener {
@@ -431,15 +435,9 @@ class RouteEditorActivity : AppCompatActivity() {
     }
 
     private fun importRoute() {
-        importDocumentLauncher.launch(
-            arrayOf(
-                "application/gpx+xml",
-                "application/vnd.google-earth.kml+xml",
-                "application/xml",
-                "text/xml",
-                "text/plain",
-            ),
-        )
+        // 很多手機把 .gpx 判成 application/octet-stream（或其他怪類型），只列幾種 MIME 的話那些檔案在選擇畫面裡會是灰色、點不了。
+        // 所以不限制類型，讓使用者看得到所有檔案；內容不是支援的格式時，匯入會說明原因。
+        importDocumentLauncher.launch(arrayOf("*/*"))
     }
 
     private fun exportRoute(route: SimulationRoute, format: LocationDocumentFormat) {
