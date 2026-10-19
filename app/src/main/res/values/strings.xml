@@ -246,4 +246,15 @@
     <string name="route_importing">Importing and simplifying the route…</string>
     <string name="route_import_simplified">Route imported: %1$d points simplified to %2$d points</string>
     <string name="route_import_cancelled">Import cancelled</string>
+    <string name="scan_gpx">Scan for GPX files</string>
+    <string name="scan_search_hint">Search by file name or folder</string>
+    <string name="scan_status_running">Scanning… %1$d folders checked, %2$d GPX files found</string>
+    <string name="scan_status_done">Scan finished: %1$d GPX files found (%2$d folders checked)</string>
+    <string name="scan_status_limit">(limit of %1$d files reached, the list may be incomplete)</string>
+    <string name="scan_permission_message">To search the whole phone for GPX files, GPS Locator needs “All files access”. Files are only read on this device and never uploaded.</string>
+    <string name="scan_grant_access">Grant all files access</string>
+    <string name="scan_rescan">Scan again</string>
+    <string name="scan_pick_folder">Choose a folder to scan</string>
+    <string name="scan_no_results">No GPX files found</string>
+    <string name="scan_item_details">%1$s · %2$s</string>
 </resources>

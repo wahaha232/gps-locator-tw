@@ -240,4 +240,15 @@
     <string name="route_importing">正在导入并简化路线…</string>
     <string name="route_import_simplified">路线已导入：原本 %1$d 个点，已简化为 %2$d 个点</string>
     <string name="route_import_cancelled">已取消导入</string>
+    <string name="scan_gpx">扫描 GPX 文件</string>
+    <string name="scan_search_hint">按文件名或文件夹搜索</string>
+    <string name="scan_status_running">扫描中… 已检查 %1$d 个文件夹，找到 %2$d 个 GPX</string>
+    <string name="scan_status_done">扫描完成：找到 %1$d 个 GPX（共检查 %2$d 个文件夹）</string>
+    <string name="scan_status_limit">（已达 %1$d 个上限，结果可能不完整）</string>
+    <string name="scan_permission_message">需要“所有文件访问权限”才能搜索整部手机里的 GPX 文件。文件只在本机读取，不会上传。</string>
+    <string name="scan_grant_access">授予所有文件访问权限</string>
+    <string name="scan_rescan">重新扫描</string>
+    <string name="scan_pick_folder">选择文件夹扫描</string>
+    <string name="scan_no_results">没有找到 GPX 文件</string>
+    <string name="scan_item_details">%1$s · %2$s</string>
 </resources>

@@ -43,6 +43,17 @@
             android:textStyle="bold" />
 
         <ImageButton
+            android:id="@+id/scanGpxButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/scan_gpx"
+            android:padding="12dp"
+            android:src="@drawable/ic_search"
+            android:tint="@color/brand"
+            android:tooltipText="@string/scan_gpx" />
+
+        <ImageButton
             android:id="@+id/savedRoutesButton"
             android:layout_width="48dp"
             android:layout_height="48dp"

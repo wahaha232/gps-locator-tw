@@ -240,4 +240,15 @@
     <string name="route_importing">ルートを読み込んで簡略化しています…</string>
     <string name="route_import_simplified">ルートを読み込みました：%1$d 点を %2$d 点に簡略化</string>
     <string name="route_import_cancelled">読み込みをキャンセルしました</string>
+    <string name="scan_gpx">GPX ファイルをスキャン</string>
+    <string name="scan_search_hint">ファイル名またはフォルダで検索</string>
+    <string name="scan_status_running">スキャン中… %1$d フォルダを確認、GPX %2$d 件</string>
+    <string name="scan_status_done">スキャン完了：GPX %1$d 件（%2$d フォルダを確認）</string>
+    <string name="scan_status_limit">（上限 %1$d 件に達したため、一覧が不完全な可能性があります）</string>
+    <string name="scan_permission_message">端末全体から GPX ファイルを検索するには「すべてのファイルへのアクセス」が必要です。ファイルは端末内で読み取るだけで、アップロードしません。</string>
+    <string name="scan_grant_access">すべてのファイルへのアクセスを許可</string>
+    <string name="scan_rescan">再スキャン</string>
+    <string name="scan_pick_folder">フォルダを選んでスキャン</string>
+    <string name="scan_no_results">GPX ファイルが見つかりません</string>
+    <string name="scan_item_details">%1$s · %2$s</string>
 </resources>

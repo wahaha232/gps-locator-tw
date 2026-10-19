@@ -250,4 +250,15 @@
     <string name="route_importing">Importando y simplificando la ruta…</string>
     <string name="route_import_simplified">Ruta importada: %1$d puntos simplificados a %2$d puntos</string>
     <string name="route_import_cancelled">Importación cancelada</string>
+    <string name="scan_gpx">Buscar archivos GPX</string>
+    <string name="scan_search_hint">Buscar por nombre o carpeta</string>
+    <string name="scan_status_running">Buscando… %1$d carpetas revisadas, %2$d archivos GPX encontrados</string>
+    <string name="scan_status_done">Búsqueda terminada: %1$d archivos GPX (%2$d carpetas revisadas)</string>
+    <string name="scan_status_limit">(se alcanzó el límite de %1$d archivos; la lista puede estar incompleta)</string>
+    <string name="scan_permission_message">Para buscar archivos GPX en todo el teléfono, GPS Locator necesita «Acceso a todos los archivos». Los archivos solo se leen en este dispositivo y nunca se suben.</string>
+    <string name="scan_grant_access">Conceder acceso a todos los archivos</string>
+    <string name="scan_rescan">Buscar de nuevo</string>
+    <string name="scan_pick_folder">Elegir una carpeta para buscar</string>
+    <string name="scan_no_results">No se encontraron archivos GPX</string>
+    <string name="scan_item_details">%1$s · %2$s</string>
 </resources>

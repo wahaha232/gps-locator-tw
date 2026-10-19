@@ -23,6 +23,7 @@ import com.gpsupdater.app.R
 import com.gpsupdater.app.databinding.ActivityRouteEditorBinding
 import com.gpsupdater.app.databinding.DialogWaypointBinding
 import com.gpsupdater.app.model.Coordinates
+import com.gpsupdater.app.routes.scan.GpxScanActivity
 import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.geocoding.MapServiceConfiguration
 import java.util.Locale
@@ -53,7 +54,17 @@ class RouteEditorActivity : AppCompatActivity() {
     private val importDocumentLauncher = registerForActivityResult(
         ActivityResultContracts.OpenDocument(),
     ) { uri ->
-        if (uri == null) return@registerForActivityResult
+        if (uri != null) importFromUri(uri)
+    }
+
+    /** 從「掃描手機中的 GPX」挑一個檔案回來：走同一條匯入流程（背景串流、可取消）。 */
+    private val scanGpxLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult(),
+    ) { result ->
+        result.data?.data?.takeIf { result.resultCode == RESULT_OK }?.let(::importFromUri)
+    }
+
+    private fun importFromUri(uri: android.net.Uri) {
         val fallbackName = uri.lastPathSegment
             ?.substringAfterLast('/')
             ?.substringBeforeLast('.')
@@ -207,6 +218,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.backButton.setOnClickListener { finish() }
         binding.savedRoutesButton.setOnClickListener { showSavedRoutes() }
         binding.sampleRouteButton.setOnClickListener { loadSampleRoute() }
+        binding.scanGpxButton.setOnClickListener { scanGpxLauncher.launch(GpxScanActivity.intent(this)) }
         binding.addWaypointButton.setOnClickListener { showAddWaypointDialog() }
         binding.undoButton.setOnClickListener {
             if (waypoints.isNotEmpty()) {
