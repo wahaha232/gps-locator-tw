@@ -58,6 +58,8 @@ data class SimulationRoute(
     /** 依各點的時間戳記播放（保留原本走走停停的快慢）；false 就用 [speedKph] 等速。需要 [hasTiming]。 */
     val useGpxTiming: Boolean = false,
     val outages: List<RouteOutage> = emptyList(),
+    /** 等速模式下讓速度自然起伏（起步加速、小幅快慢變化）；依時間戳記播放時不套用。 */
+    val naturalSpeed: Boolean = false,
 ) {
     init {
         require(name.isNotBlank())

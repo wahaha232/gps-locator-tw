@@ -240,4 +240,11 @@
     <string name="route_outage_duration_hint">Duración (segundos)</string>
     <string name="route_outage_invalid">Indica un inicio ≥ 0 y una duración de 1 a 86400 segundos</string>
     <string name="route_outage_removed">Pérdida eliminada</string>
+    <string name="natural_speed">Variación natural de velocidad</string>
+    <string name="playback_pause">Pausar</string>
+    <string name="playback_resume">Reanudar</string>
+    <string name="playback_rate">Velocidad ×%1$d</string>
+    <string name="playback_info_total">Reproducido %1$s / %2$s · faltan %3$s · %4$d km/h</string>
+    <string name="playback_info_open">Reproducido %1$s · %2$d km/h</string>
+    <string name="playback_paused">En pausa</string>
 </resources>

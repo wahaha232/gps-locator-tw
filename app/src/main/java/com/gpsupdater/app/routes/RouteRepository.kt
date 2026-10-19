@@ -85,6 +85,7 @@ object RouteJsonCodec {
         .put("loop", route.loop)
         .put("createdAt", route.createdAt)
         .put("useGpxTiming", route.useGpxTiming)
+        .put("naturalSpeed", route.naturalSpeed)
         .put(
             "outages",
             JSONArray().apply {
@@ -150,6 +151,7 @@ object RouteJsonCodec {
             createdAt = json.optLong("createdAt", System.currentTimeMillis()),
             useGpxTiming = json.optBoolean("useGpxTiming", false) && SimulationRoute.hasTiming(waypoints),
             outages = decodeOutages(json),
+            naturalSpeed = json.optBoolean("naturalSpeed", false),
         )
     }
 }

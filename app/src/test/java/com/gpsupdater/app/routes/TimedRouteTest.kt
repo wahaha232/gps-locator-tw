@@ -183,4 +183,68 @@ class TimedRouteTest {
         assertFalse(old.useGpxTiming)
         assertTrue(old.outages.isEmpty())
     }
+
+    // ---- 自然起伏與預估時間 ----
+    private fun fixedRoute(natural: Boolean, loop: Boolean = false) = SimulationRoute(
+        name = "r",
+        waypoints = listOf(wp(0.0, null), wp(0.01, null)), // 約 1.1 公里
+        speedKph = 5.0,
+        loop = loop,
+        naturalSpeed = natural,
+    )
+
+    @Test
+    fun `natural speed ramps up from a slow start and then varies within bounds`() {
+        val simulator = RouteSimulator(fixedRoute(natural = true))
+        val speeds = (1..120).map { simulator.advance(1.0).speedMetersPerSecond.toDouble() }
+        val base = 5.0 / 3.6
+        assertTrue("起步比全速慢", speeds.first() < base * 0.7)
+        assertTrue("之後都在 ±20% 內", speeds.drop(10).all { it in base * 0.79..base * 1.21 })
+        assertTrue("速度確實有起伏", speeds.drop(10).let { (it.max() - it.min()) > base * 0.05 })
+    }
+
+    @Test
+    fun `natural speed is off by default and for timed routes`() {
+        val plain = RouteSimulator(fixedRoute(natural = false))
+        val speeds = (1..20).map { plain.advance(1.0).speedMetersPerSecond.toDouble() }
+        assertTrue(speeds.all { kotlin.math.abs(it - 5.0 / 3.6) < 1e-6 })
+
+        val timed = SimulationRoute(
+            name = "r", waypoints = listOf(wp(0.0, 0L), wp(0.001, 100L)), speedKph = 5.0, loop = false,
+            useGpxTiming = true, naturalSpeed = true,
+        )
+        val timedSim = RouteSimulator(timed)
+        val first = timedSim.advance(10.0).speedMetersPerSecond.toDouble()
+        val later = timedSim.advance(40.0).speedMetersPerSecond.toDouble()
+        assertEquals(first, later, 1e-6)
+    }
+
+    @Test
+    fun `natural speed still reaches the end and stays deterministic`() {
+        fun run(): Double {
+            val simulator = RouteSimulator(fixedRoute(natural = true))
+            var steps = 0
+            while (!simulator.advance(1.0).isComplete) steps++
+            return steps.toDouble()
+        }
+        val a = run()
+        assertEquals(a, run(), 0.0)
+        // 全速需要約 800 秒（1112 m / 1.389 m/s）；自然起伏平均略慢（含起步），但不應差太多
+        assertTrue(a in 780.0..900.0)
+    }
+
+    @Test
+    fun `estimated total time covers timed fixed and loop routes`() {
+        assertEquals(150.0, RouteSimulator(timedRoute(0.0 to 0L, 0.001 to 100L, 0.002 to 150L)).estimatedTotalSeconds!!, 1e-6)
+        val fixed = RouteSimulator(fixedRoute(natural = false)).estimatedTotalSeconds!!
+        assertEquals(1111.95 / (5.0 / 3.6), fixed, 5.0)
+        assertNull(RouteSimulator(fixedRoute(natural = false, loop = true)).estimatedTotalSeconds)
+    }
+
+    @Test
+    fun `json keeps natural speed flag`() {
+        val route = fixedRoute(natural = true)
+        assertTrue(RouteJsonCodec.decode(RouteJsonCodec.encode(route))!!.naturalSpeed)
+        assertFalse(RouteJsonCodec.decode(RouteJsonCodec.encode(fixedRoute(natural = false)))!!.naturalSpeed)
+    }
 }

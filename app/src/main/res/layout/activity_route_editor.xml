@@ -146,12 +146,29 @@
                 android:textSize="13sp" />
         </LinearLayout>
 
-        <TextView
-            android:id="@+id/speedText"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/charcoal_600"
-            android:textSize="13sp" />
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
+
+            <TextView
+                android:id="@+id/speedText"
+                android:layout_width="0dp"
+                android:layout_height="wrap_content"
+                android:layout_weight="1"
+                android:textColor="@color/charcoal_600"
+                android:textSize="13sp" />
+
+            <com.google.android.material.materialswitch.MaterialSwitch
+                android:id="@+id/timingSwitch"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="@string/route_use_gpx_timing"
+                android:textColor="@color/charcoal_600"
+                android:textSize="13sp"
+                android:visibility="gone" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -248,13 +265,12 @@
                 android:layout_weight="1" />
 
             <com.google.android.material.materialswitch.MaterialSwitch
-                android:id="@+id/timingSwitch"
+                android:id="@+id/naturalSwitch"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="@string/route_use_gpx_timing"
+                android:text="@string/natural_speed"
                 android:textColor="@color/charcoal_600"
-                android:textSize="13sp"
-                android:visibility="gone" />
+                android:textSize="13sp" />
         </LinearLayout>
 
         <LinearLayout

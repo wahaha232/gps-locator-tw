@@ -41,6 +41,8 @@ class MockLocationService : Service() {
     private var activeRoute: SimulationRoute? = null
     private var routeSimulator: RouteSimulator? = null
     private var lastRouteUpdateNanos = 0L
+    private var paused = false
+    private var rate = 1
     private var lastNotificationProgress = -1
     private var providersPrepared = false
     private var cleanupCompleted = false
@@ -71,6 +73,11 @@ class MockLocationService : Service() {
             stopMocking()
             stopSelf()
             return START_NOT_STICKY
+        }
+
+        if (intent?.action == ACTION_PAUSE || intent?.action == ACTION_RESUME || intent?.action == ACTION_SET_RATE) {
+            if (routeSimulator != null) handlePlaybackControl(intent)
+            return START_STICKY
         }
 
         if (intent?.action == ACTION_START_ROUTE) {
@@ -178,6 +185,8 @@ class MockLocationService : Service() {
     }
 
     private fun startRouteMocking(route: SimulationRoute, recordHistory: Boolean) {
+        paused = false
+        rate = 1
         cleanupCompleted = false
         activeRoute = route
         routeSimulator = RouteSimulator(route)
@@ -261,18 +270,23 @@ class MockLocationService : Service() {
         val nowNanos = SystemClock.elapsedRealtimeNanos()
         val deltaSeconds = (nowNanos - lastRouteUpdateNanos).coerceAtLeast(0L) / 1_000_000_000.0
         lastRouteUpdateNanos = nowNanos
-        val position = simulator.advance(deltaSeconds)
+        if (paused) {
+            // 暫停：人停在原地，仍持續送出同一個位置（速度 0），其他 App 看到的是「站著不動」而不是失去訊號。
+            val still = simulator.current()
+            injectLocation(still.coordinates, 0f, still.bearingDegrees)
+            broadcastRouteStatus(still, simulator)
+            return true
+        }
+        val position = simulator.advance(deltaSeconds * rate)
         coordinates = position.coordinates
         MockLocationPreferences.saveCoordinates(this, coordinates)
         val route = activeRoute
         // GPS 中斷：模擬的人照常前進，但這段時間不送出位置（其他 App 會像真的失去訊號一樣停止收到定位）。
         val inOutage = route != null && GpsOutagePolicy.isActive(route.outages, position.elapsedSeconds)
-        if (!inOutage) injectLocation(position)
-        broadcastStatus(
-            STATUS_ROUTE_RUNNING,
-            routeId = route?.id,
-            progress = position.progress,
-        )
+        if (!inOutage) {
+            injectLocation(position.coordinates, position.speedMetersPerSecond * rate, position.bearingDegrees)
+        }
+        broadcastRouteStatus(position, simulator)
         updateRouteNotification(position)
         if (position.isComplete) {
             SimulationRunRepository(this).finishActive(
@@ -456,7 +470,20 @@ class MockLocationService : Service() {
                 getString(R.string.notification_stop),
                 stopIntent,
             )
-        if (route != null) builder.setProgress(100, routeProgress, starting)
+        if (route != null) {
+            builder.setProgress(100, routeProgress, starting)
+            val toggle = PendingIntent.getService(
+                this,
+                2,
+                if (paused) resumeIntent(this) else pauseIntent(this),
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+            )
+            builder.addAction(
+                if (paused) R.drawable.ic_play else R.drawable.ic_pause,
+                getString(if (paused) R.string.playback_resume else R.string.playback_pause),
+                toggle,
+            )
+        }
         return builder.build()
     }
 
@@ -482,11 +509,42 @@ class MockLocationService : Service() {
         broadcastStatus(STATUS_ERROR, message)
     }
 
+    private fun handlePlaybackControl(intent: Intent) {
+        when (intent.action) {
+            ACTION_PAUSE -> paused = true
+            ACTION_RESUME -> {
+                paused = false
+                lastRouteUpdateNanos = SystemClock.elapsedRealtimeNanos()
+            }
+            ACTION_SET_RATE -> rate = intent.getIntExtra(EXTRA_RATE, 1).coerceIn(1, 8)
+        }
+        val simulator = routeSimulator ?: return
+        val position = simulator.current()
+        lastNotificationProgress = -1 // 強制重畫通知（暫停／繼續按鈕要換）
+        updateRouteNotification(position)
+        broadcastRouteStatus(position, simulator)
+    }
+
+    private fun broadcastRouteStatus(position: RoutePosition, simulator: RouteSimulator) {
+        broadcastStatus(
+            STATUS_ROUTE_RUNNING,
+            routeId = activeRoute?.id,
+            progress = position.progress,
+        ) { intent ->
+            intent.putExtra(EXTRA_ROUTE_ELAPSED, position.elapsedSeconds)
+            intent.putExtra(EXTRA_ROUTE_TOTAL, simulator.estimatedTotalSeconds ?: -1.0)
+            intent.putExtra(EXTRA_ROUTE_SPEED_KMH, position.speedMetersPerSecond * 3.6 * rate)
+            intent.putExtra(EXTRA_ROUTE_PAUSED, paused)
+            intent.putExtra(EXTRA_ROUTE_RATE, rate)
+        }
+    }
+
     private fun broadcastStatus(
         status: String,
         message: String? = null,
         routeId: String? = null,
         progress: Double? = null,
+        extras: (Intent) -> Unit = {},
     ) {
         val intent = Intent(ACTION_STATUS)
             .setPackage(packageName)
@@ -494,6 +552,7 @@ class MockLocationService : Service() {
         message?.let { intent.putExtra(EXTRA_MESSAGE, it) }
         routeId?.let { intent.putExtra(EXTRA_ROUTE_ID, it) }
         progress?.let { intent.putExtra(EXTRA_ROUTE_PROGRESS, it) }
+        extras(intent)
         sendBroadcast(intent)
     }
 
@@ -510,10 +569,19 @@ class MockLocationService : Service() {
         const val STATUS_ROUTE_RUNNING = "route_running"
         const val STATUS_ROUTE_COMPLETED = "route_completed"
         const val EXTRA_ROUTE_PROGRESS = "route_progress"
+        const val EXTRA_ROUTE_ELAPSED = "route_elapsed_seconds"
+        const val EXTRA_ROUTE_TOTAL = "route_total_seconds"
+        const val EXTRA_ROUTE_SPEED_KMH = "route_speed_kmh"
+        const val EXTRA_ROUTE_PAUSED = "route_paused"
+        const val EXTRA_ROUTE_RATE = "route_rate"
 
         private const val ACTION_START = "com.gpsupdater.app.action.START"
         private const val ACTION_STOP = "com.gpsupdater.app.action.STOP"
         private const val ACTION_START_ROUTE = "com.gpsupdater.app.action.START_ROUTE"
+        private const val ACTION_PAUSE = "com.gpsupdater.app.action.PAUSE"
+        private const val ACTION_RESUME = "com.gpsupdater.app.action.RESUME"
+        private const val ACTION_SET_RATE = "com.gpsupdater.app.action.SET_RATE"
+        private const val EXTRA_RATE = "rate"
         private const val EXTRA_LATITUDE = "latitude"
         private const val EXTRA_LONGITUDE = "longitude"
         private const val EXTRA_LABEL = "label"
@@ -534,6 +602,16 @@ class MockLocationService : Service() {
                 .putExtra(EXTRA_LATITUDE, coordinates.latitude)
                 .putExtra(EXTRA_LONGITUDE, coordinates.longitude)
                 .putExtra(EXTRA_LABEL, label)
+
+        fun pauseIntent(context: Context): Intent =
+            Intent(context, MockLocationService::class.java).setAction(ACTION_PAUSE)
+
+        fun resumeIntent(context: Context): Intent =
+            Intent(context, MockLocationService::class.java).setAction(ACTION_RESUME)
+
+        /** 路線播放倍速（1、2、4、8）。 */
+        fun rateIntent(context: Context, rate: Int): Intent =
+            Intent(context, MockLocationService::class.java).setAction(ACTION_SET_RATE).putExtra(EXTRA_RATE, rate)
 
         fun stopIntent(context: Context): Intent =
             Intent(context, MockLocationService::class.java).setAction(ACTION_STOP)

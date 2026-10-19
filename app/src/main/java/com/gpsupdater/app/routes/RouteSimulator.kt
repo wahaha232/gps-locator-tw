@@ -56,6 +56,16 @@ class RouteSimulator(private val route: SimulationRoute) {
     }
     private var timeIntoLeg = 0.0
 
+    /** 目前這一步實際使用的速度（等速模式下，自然起伏會讓它隨時間變化）。 */
+    private var effectiveSpeed = speedMetersPerSecond * speedFactor(0.0)
+
+    /** 預估整趟要多久（秒）；循環路線沒有終點，回傳 null。 */
+    val estimatedTotalSeconds: Double? = when {
+        route.loop -> null
+        timed -> timedLegSeconds.sum()
+        else -> totalDistance / speedMetersPerSecond + route.waypoints.sumOf { it.stopDurationSeconds.toDouble() }
+    }
+
     private var currentWaypointIndex = 0
     private var distanceIntoLeg = 0.0
     private var distanceCompletedInLap = 0.0
@@ -69,6 +79,7 @@ class RouteSimulator(private val route: SimulationRoute) {
     fun advance(deltaSeconds: Double): RoutePosition {
         require(deltaSeconds.isFinite() && deltaSeconds >= 0)
         if (timed) return advanceTimed(deltaSeconds)
+        effectiveSpeed = speedMetersPerSecond * speedFactor(elapsedSeconds)
         var remainingSeconds = deltaSeconds
         var iterations = 0
         while (remainingSeconds > 1e-9 && !complete) {
@@ -100,9 +111,9 @@ class RouteSimulator(private val route: SimulationRoute) {
                 continue
             }
 
-            val travelSeconds = remainingLegDistance / speedMetersPerSecond
+            val travelSeconds = remainingLegDistance / effectiveSpeed
             if (remainingSeconds < travelSeconds) {
-                distanceIntoLeg += remainingSeconds * speedMetersPerSecond
+                distanceIntoLeg += remainingSeconds * effectiveSpeed
                 elapsedSeconds += remainingSeconds
                 remainingSeconds = 0.0
             } else {
@@ -112,6 +123,19 @@ class RouteSimulator(private val route: SimulationRoute) {
             }
         }
         return buildPosition()
+    }
+
+    /**
+     * 自然起伏：起步 6 秒內由 35% 加速到全速，之後在 ±17% 內緩慢變化（幾個週期不同的正弦疊加，固定不隨機，方便重現與測試）。
+     * 只用在等速模式；依時間戳記播放時速度由 GPX 決定，不套用。
+     */
+    private fun speedFactor(elapsed: Double): Double {
+        if (!route.naturalSpeed || timed) return 1.0
+        val wobble = 1.0 + 0.10 * kotlin.math.sin(elapsed / 9.0) +
+            0.05 * kotlin.math.sin(elapsed / 3.7 + 1.3) +
+            0.02 * kotlin.math.sin(elapsed / 1.9 + 0.4)
+        val ramp = (0.35 + 0.65 * (elapsed / 6.0)).coerceIn(0.35, 1.0)
+        return wobble.coerceIn(0.8, 1.2) * ramp
     }
 
     private fun advanceTimed(deltaSeconds: Double): RoutePosition {
@@ -201,7 +225,7 @@ class RouteSimulator(private val route: SimulationRoute) {
             val legSeconds = timedLegSeconds[legIndex]
             if (legSeconds > 1e-9) legDistance / legSeconds else 0.0
         } else {
-            speedMetersPerSecond
+            effectiveSpeed
         }
         val isStopped = stopRemainingSeconds > 1e-9 || complete || (timed && legSpeed < STOPPED_SPEED_MPS)
         return RoutePosition(

@@ -230,4 +230,11 @@
     <string name="route_outage_duration_hint">持續（秒）</string>
     <string name="route_outage_invalid">開始時間需 ≥ 0，持續時間需在 1 到 86400 秒之間</string>
     <string name="route_outage_removed">已刪除中斷</string>
+    <string name="natural_speed">速度自然起伏</string>
+    <string name="playback_pause">暫停</string>
+    <string name="playback_resume">繼續</string>
+    <string name="playback_rate">倍速 ×%1$d</string>
+    <string name="playback_info_total">已播放 %1$s / %2$s · 剩餘 %3$s · %4$d 公里/小時</string>
+    <string name="playback_info_open">已播放 %1$s · %2$d 公里/小時</string>
+    <string name="playback_paused">已暫停</string>
 </resources>

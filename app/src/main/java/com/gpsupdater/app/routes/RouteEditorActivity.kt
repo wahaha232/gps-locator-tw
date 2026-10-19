@@ -241,6 +241,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.routeNameInput.setText(R.string.sample_route_name)
         binding.speedSlider.value = SAMPLE_ROUTE_SPEED_KPH
         binding.loopSwitch.isChecked = false
+        binding.naturalSwitch.isChecked = false
         outages.clear()
         updateEditorState()
         zoomToWaypoints()
@@ -263,6 +264,7 @@ class RouteEditorActivity : AppCompatActivity() {
                 createdAt = editingCreatedAt,
                 useGpxTiming = SimulationRoute.hasTiming(waypoints) && binding.timingSwitch.isChecked,
                 outages = outages.toList(),
+                naturalSpeed = binding.naturalSwitch.isChecked,
             )
         }.getOrElse {
             showMessage(getString(R.string.route_requires_points))
@@ -395,6 +397,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.loopSwitch.isChecked = route.loop
         outages.clear()
         outages.addAll(route.outages)
+        binding.naturalSwitch.isChecked = route.naturalSpeed
         updateEditorState()
         binding.timingSwitch.isChecked = route.useGpxTiming
         refreshTimingUi()
@@ -418,6 +421,8 @@ class RouteEditorActivity : AppCompatActivity() {
             it.alpha = if (fixedSpeed) 1f else 0.4f
         }
         binding.speedText.alpha = if (fixedSpeed) 1f else 0.4f
+        binding.naturalSwitch.isEnabled = fixedSpeed
+        binding.naturalSwitch.alpha = if (fixedSpeed) 1f else 0.4f
         binding.outageButton.text = getString(R.string.route_outages, outages.size)
     }
 

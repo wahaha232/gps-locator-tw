@@ -195,6 +195,7 @@ class MainActivity : AppCompatActivity() {
         override fun onReceive(context: Context?, intent: Intent?) {
             when (intent?.getStringExtra(MockLocationService.EXTRA_STATUS)) {
                 MockLocationService.STATUS_RUNNING -> {
+                    binding.playbackPanel.visibility = View.GONE
                     updateServiceState(ServiceState.RUNNING)
                     showMessage(
                         if (binding.startButton.text == getString(R.string.update_mock)) {
@@ -206,15 +207,21 @@ class MainActivity : AppCompatActivity() {
                 }
 
                 MockLocationService.STATUS_STOPPED -> {
+                    binding.playbackPanel.visibility = View.GONE
                     updateServiceState(ServiceState.STOPPED)
                     if (pendingLocalDataClear) clearLocalTestData()
                 }
-                MockLocationService.STATUS_ROUTE_RUNNING -> updateServiceState(ServiceState.RUNNING)
+                MockLocationService.STATUS_ROUTE_RUNNING -> {
+                    updateServiceState(ServiceState.RUNNING)
+                    updatePlaybackPanel(intent)
+                }
                 MockLocationService.STATUS_ROUTE_COMPLETED -> {
+                    binding.playbackPanel.visibility = View.GONE
                     updateServiceState(ServiceState.STOPPED)
                     showMessage(getString(R.string.route_completed))
                 }
                 MockLocationService.STATUS_ERROR -> {
+                    binding.playbackPanel.visibility = View.GONE
                     updateServiceState(ServiceState.ERROR)
                     showMessage(
                         intent.getStringExtra(MockLocationService.EXTRA_MESSAGE)
@@ -503,6 +510,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configureFloatingControls() {
+        configurePlaybackControls()
         binding.controlPanel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
             val panelHeight = bottom - top
             binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {
@@ -1418,6 +1426,60 @@ class MainActivity : AppCompatActivity() {
                 showMessage(getString(R.string.favorite_deleted))
             }
             .show()
+    }
+
+    private var playbackPaused = false
+    private var playbackRate = 1
+
+    /** 路線播放中的進度列：進度、已播放／剩餘時間、目前速度，以及暫停和倍速按鈕。 */
+    private fun updatePlaybackPanel(intent: Intent) {
+        val elapsed = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_ELAPSED, 0.0)
+        val total = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_TOTAL, -1.0)
+        val speedKmh = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_SPEED_KMH, 0.0)
+        val progress = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_PROGRESS, 0.0)
+        playbackPaused = intent.getBooleanExtra(MockLocationService.EXTRA_ROUTE_PAUSED, false)
+        playbackRate = intent.getIntExtra(MockLocationService.EXTRA_ROUTE_RATE, 1)
+        binding.playbackPanel.visibility = View.VISIBLE
+        binding.playbackProgress.max = 1000
+        binding.playbackProgress.setProgressCompat((progress * 1000).toInt().coerceIn(0, 1000), true)
+        val speed = Math.round(speedKmh).toInt()
+        var info = if (total > 0) {
+            getString(
+                R.string.playback_info_total,
+                formatPlaybackClock(elapsed),
+                formatPlaybackClock(total),
+                formatPlaybackClock((total - elapsed).coerceAtLeast(0.0)),
+                speed,
+            )
+        } else {
+            getString(R.string.playback_info_open, formatPlaybackClock(elapsed), speed)
+        }
+        if (playbackPaused) info += " · " + getString(R.string.playback_paused)
+        binding.playbackInfo.text = info
+        binding.playbackPauseButton.setText(if (playbackPaused) R.string.playback_resume else R.string.playback_pause)
+        binding.playbackRateButton.text = getString(R.string.playback_rate, playbackRate)
+    }
+
+    private fun formatPlaybackClock(seconds: Double): String {
+        val total = seconds.toLong().coerceAtLeast(0)
+        val h = total / 3600
+        val m = (total % 3600) / 60
+        val s = total % 60
+        return if (h > 0) String.format(java.util.Locale.US, "%d:%02d:%02d", h, m, s)
+        else String.format(java.util.Locale.US, "%d:%02d", m, s)
+    }
+
+    private fun configurePlaybackControls() {
+        binding.playbackPauseButton.setOnClickListener {
+            startService(
+                if (playbackPaused) MockLocationService.resumeIntent(this) else MockLocationService.pauseIntent(this),
+            )
+        }
+        binding.playbackRateButton.setOnClickListener {
+            val rates = intArrayOf(1, 2, 4, 8)
+            val next = rates[(rates.indexOf(playbackRate) + 1).mod(rates.size)]
+            startService(MockLocationService.rateIntent(this, next))
+        }
     }
 
     private fun updateServiceState(state: ServiceState) {

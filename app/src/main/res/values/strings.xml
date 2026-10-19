@@ -236,4 +236,11 @@
     <string name="route_outage_duration_hint">Duration (seconds)</string>
     <string name="route_outage_invalid">Enter a start of 0 or more and a duration of 1 to 86400 seconds</string>
     <string name="route_outage_removed">Outage removed</string>
+    <string name="natural_speed">Natural speed variation</string>
+    <string name="playback_pause">Pause</string>
+    <string name="playback_resume">Resume</string>
+    <string name="playback_rate">Speed ×%1$d</string>
+    <string name="playback_info_total">Played %1$s / %2$s · %3$s left · %4$d km/h</string>
+    <string name="playback_info_open">Played %1$s · %2$d km/h</string>
+    <string name="playback_paused">Paused</string>
 </resources>

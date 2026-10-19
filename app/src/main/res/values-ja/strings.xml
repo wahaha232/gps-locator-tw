@@ -230,4 +230,11 @@
     <string name="route_outage_duration_hint">継続（秒）</string>
     <string name="route_outage_invalid">開始は 0 以上、継続は 1〜86400 秒で入力してください</string>
     <string name="route_outage_removed">途絶を削除しました</string>
+    <string name="natural_speed">速度を自然に揺らす</string>
+    <string name="playback_pause">一時停止</string>
+    <string name="playback_resume">再開</string>
+    <string name="playback_rate">倍速 ×%1$d</string>
+    <string name="playback_info_total">再生 %1$s / %2$s · 残り %3$s · %4$d km/h</string>
+    <string name="playback_info_open">再生 %1$s · %2$d km/h</string>
+    <string name="playback_paused">一時停止中</string>
 </resources>
