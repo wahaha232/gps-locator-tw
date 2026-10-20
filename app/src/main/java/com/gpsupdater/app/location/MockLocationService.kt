@@ -132,6 +132,10 @@ class MockLocationService : Service() {
     ) {
         cleanupCompleted = false
         val replacedRoute = activeRoute != null
+        // 上一個執行（路線或固定點）結束時的位置：必須在存入新座標之前讀。
+        // SimulationRunRepository.begin() 會用「新座標」去結案舊的執行紀錄，會讓路線的終點被寫成新位置，所以這裡先用舊位置結案。
+        val previousCoordinates = MockLocationPreferences.coordinates(this)
+        SimulationRunRepository(this).finishActive(SimulationOutcome.STOPPED, previousCoordinates)
         activeRoute = null
         routeSimulator = null
         lastRouteUpdateNanos = 0L
@@ -536,6 +540,9 @@ class MockLocationService : Service() {
             intent.putExtra(EXTRA_ROUTE_SPEED_KMH, position.speedMetersPerSecond * 3.6 * rate)
             intent.putExtra(EXTRA_ROUTE_PAUSED, paused)
             intent.putExtra(EXTRA_ROUTE_RATE, rate)
+            // 目前的模擬座標：首頁地圖用它來「跟隨模擬位置」
+            intent.putExtra(EXTRA_POSITION_LAT, position.coordinates.latitude)
+            intent.putExtra(EXTRA_POSITION_LON, position.coordinates.longitude)
         }
     }
 
@@ -574,6 +581,8 @@ class MockLocationService : Service() {
         const val EXTRA_ROUTE_SPEED_KMH = "route_speed_kmh"
         const val EXTRA_ROUTE_PAUSED = "route_paused"
         const val EXTRA_ROUTE_RATE = "route_rate"
+        const val EXTRA_POSITION_LAT = "position_lat"
+        const val EXTRA_POSITION_LON = "position_lon"
 
         private const val ACTION_START = "com.gpsupdater.app.action.START"
         private const val ACTION_STOP = "com.gpsupdater.app.action.STOP"

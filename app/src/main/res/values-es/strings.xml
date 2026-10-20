@@ -264,4 +264,9 @@
     <string name="route_import_failed_reason">No se pudo importar este archivo de ruta: %1$s</string>
     <string name="zoom_in">Acercar el mapa</string>
     <string name="zoom_out">Alejar el mapa</string>
+    <string name="playback_follow_on">Seguir: sí</string>
+    <string name="playback_follow_off">Seguir: no</string>
+    <string name="switch_to_static">Cambiar a punto fijo</string>
+    <string name="replace_route_title">¿Detener la ruta actual?</string>
+    <string name="replace_route_message">Hay una ruta en reproducción. Cambiar a un punto fijo detiene la ruta y deja la ubicación en las coordenadas de la pantalla.</string>
 </resources>

@@ -254,4 +254,9 @@
     <string name="route_import_failed_reason">このルートファイルを読み込めません：%1$s</string>
     <string name="zoom_in">地図を拡大</string>
     <string name="zoom_out">地図を縮小</string>
+    <string name="playback_follow_on">追従：オン</string>
+    <string name="playback_follow_off">追従：オフ</string>
+    <string name="switch_to_static">固定位置に切り替え</string>
+    <string name="replace_route_title">現在のルートを停止しますか？</string>
+    <string name="replace_route_message">ルートを再生中です。固定位置に切り替えるとルートが停止し、画面の座標に固定されます。</string>
 </resources>

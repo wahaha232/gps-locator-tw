@@ -291,6 +291,17 @@
                     style="@style/Widget.GpsUpdater.Button.Tonal"
                     android:layout_width="0dp"
                     android:layout_height="40dp"
+                    android:layout_marginEnd="8dp"
+                    android:layout_weight="1"
+                    android:insetTop="0dp"
+                    android:insetBottom="0dp"
+                    android:textSize="13sp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/playbackFollowButton"
+                    style="@style/Widget.GpsUpdater.Button.Tonal"
+                    android:layout_width="0dp"
+                    android:layout_height="40dp"
                     android:layout_weight="1"
                     android:insetTop="0dp"
                     android:insetBottom="0dp"

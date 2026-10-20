@@ -323,6 +323,15 @@ class MainActivity : AppCompatActivity() {
         binding.map.apply {
             setTileSource(MapServiceConfiguration.tileSource())
             setMultiTouchControls(true)
+            // 播放路線時使用者一碰地圖就暫停「跟隨模擬位置」，不然地圖會一直被拉回去。
+            setOnTouchListener { _, event ->
+                if (event.action == android.view.MotionEvent.ACTION_DOWN &&
+                    binding.playbackPanel.visibility == View.VISIBLE && followSimulation
+                ) {
+                    setFollowSimulation(false)
+                }
+                false
+            }
             isTilesScaledToDpi = false
             minZoomLevel = 3.0
             maxZoomLevel = 20.0
@@ -439,8 +448,21 @@ class MainActivity : AppCompatActivity() {
             requestPermissions(PermissionAction.START_MOCK)
             return
         }
+        if (isRoutePlaying()) {
+            // 改成固定位置會停止目前的路線；不能靜默蓋掉。
+            MaterialAlertDialogBuilder(this)
+                .setTitle(R.string.replace_route_title)
+                .setMessage(R.string.replace_route_message)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.switch_to_static) { _, _ -> startMockService(coordinates) }
+                .show()
+            return
+        }
         startMockService(coordinates)
     }
+
+    private fun isRoutePlaying(): Boolean =
+        binding.playbackPanel.visibility == View.VISIBLE || MockLocationPreferences.activeRouteId(this) != null
 
     private fun startMockService(coordinates: Coordinates) {
         updateServiceState(ServiceState.STARTING)
@@ -1436,6 +1458,19 @@ class MainActivity : AppCompatActivity() {
     private var playbackPaused = false
     private var playbackRate = 1
 
+    // 地圖是否跟著模擬位置走：路線開始播放時預設開啟；使用者自己拖曳地圖就暫停，按「跟隨」再回到模擬位置。
+    private var followSimulation = true
+    private var simulationLatitude = Double.NaN
+    private var simulationLongitude = Double.NaN
+
+    private fun setFollowSimulation(follow: Boolean) {
+        followSimulation = follow
+        binding.playbackFollowButton.setText(if (follow) R.string.playback_follow_on else R.string.playback_follow_off)
+        if (follow && !simulationLatitude.isNaN() && !simulationLongitude.isNaN()) {
+            binding.map.controller.animateTo(GeoPoint(simulationLatitude, simulationLongitude))
+        }
+    }
+
     /** 路線播放中的進度列：進度、已播放／剩餘時間、目前速度，以及暫停和倍速按鈕。 */
     private fun updatePlaybackPanel(intent: Intent) {
         val elapsed = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_ELAPSED, 0.0)
@@ -1444,7 +1479,21 @@ class MainActivity : AppCompatActivity() {
         val progress = intent.getDoubleExtra(MockLocationService.EXTRA_ROUTE_PROGRESS, 0.0)
         playbackPaused = intent.getBooleanExtra(MockLocationService.EXTRA_ROUTE_PAUSED, false)
         playbackRate = intent.getIntExtra(MockLocationService.EXTRA_ROUTE_RATE, 1)
+        val panelWasHidden = binding.playbackPanel.visibility != View.VISIBLE
         binding.playbackPanel.visibility = View.VISIBLE
+        // 路線播放中，「更新位置」會停掉路線改成固定位置：按鈕文字要讓人看得出來。
+        binding.startButton.setText(R.string.switch_to_static)
+        if (panelWasHidden) followSimulation = true
+        val lat = intent.getDoubleExtra(MockLocationService.EXTRA_POSITION_LAT, Double.NaN)
+        val lon = intent.getDoubleExtra(MockLocationService.EXTRA_POSITION_LON, Double.NaN)
+        if (!lat.isNaN() && !lon.isNaN()) {
+            simulationLatitude = lat
+            simulationLongitude = lon
+            if (followSimulation) binding.map.controller.animateTo(GeoPoint(lat, lon))
+        }
+        binding.playbackFollowButton.setText(
+            if (followSimulation) R.string.playback_follow_on else R.string.playback_follow_off,
+        )
         binding.playbackProgress.max = 1000
         binding.playbackProgress.setProgressCompat((progress * 1000).toInt().coerceIn(0, 1000), true)
         val speed = Math.round(speedKmh).toInt()
@@ -1475,6 +1524,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun configurePlaybackControls() {
+        binding.playbackFollowButton.setOnClickListener { setFollowSimulation(!followSimulation) }
         binding.playbackPauseButton.setOnClickListener {
             startService(
                 if (playbackPaused) MockLocationService.resumeIntent(this) else MockLocationService.pauseIntent(this),
