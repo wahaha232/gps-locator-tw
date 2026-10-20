@@ -287,4 +287,7 @@
     <string name="lock_confirm_message">El dispositivo se establecerá en %1$s. Las coordenadas quedan fijas y no siguen al mapa hasta que pulses Detener.</string>
     <string name="lock_confirm_action">Fijar</string>
     <string name="location_locked_hint">Las coordenadas están fijas. Pulsa Detener para elegir otro lugar arrastrando el mapa.</string>
+    <string name="return_to_lock">Volver a la ubicación fijada</string>
+    <string name="lock_here">Fijar aquí</string>
+    <string name="unlock_here">Quitar fijación</string>
 </resources>

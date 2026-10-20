@@ -191,6 +191,34 @@ class RouteEditorActivity : AppCompatActivity() {
 
     /** 主畫面交過來的目前標記位置；沒有就用最後儲存的位置。 */
     private var startCoordinates: Coordinates = Coordinates.DEFAULT
+
+    // 鎖定：在地圖上留一個固定標記當隨機生成軌跡的起點，拖地圖時標記跟著地圖走，座標不變。
+    private var locked = false
+    private var lockMarker: Marker? = null
+
+    private fun setLocked(lock: Boolean) {
+        locked = lock
+        if (lock) {
+            val center = binding.map.mapCenter
+            startCoordinates = Coordinates(center.latitude, center.longitude)
+        }
+        refreshLockMarker()
+    }
+
+    private fun refreshLockMarker() {
+        lockMarker?.let { binding.map.overlays.remove(it) }
+        lockMarker = null
+        if (locked) {
+            lockMarker = Marker(binding.map).apply {
+                position = GeoPoint(startCoordinates.latitude, startCoordinates.longitude)
+                icon = androidx.core.content.ContextCompat.getDrawable(this@RouteEditorActivity, R.drawable.ic_map_pin)
+                setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                setOnMarkerClickListener { _, _ -> true }
+            }.also { binding.map.overlays.add(it) }
+        }
+        binding.lockButton.setText(if (locked) R.string.unlock_here else R.string.lock_here)
+        binding.map.invalidate()
+    }
     private fun resolveStartCoordinates(): Coordinates {
         val lat = intent.getDoubleExtra(EXTRA_START_LAT, Double.NaN)
         val lon = intent.getDoubleExtra(EXTRA_START_LON, Double.NaN)
@@ -220,6 +248,7 @@ class RouteEditorActivity : AppCompatActivity() {
         val manager = getSystemService(android.location.LocationManager::class.java)
         fun moveTo(location: android.location.Location) {
             startCoordinates = Coordinates(location.latitude, location.longitude)
+            if (locked) refreshLockMarker()
             binding.map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
         }
         fun giveUp() = showMessage(
@@ -333,6 +362,9 @@ class RouteEditorActivity : AppCompatActivity() {
             binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(16)
             }
+            binding.lockButton.updateLayoutParams<FrameLayout.LayoutParams> {
+                bottomMargin = panelHeight + dp(16) + dp(60)
+            }
             // 地圖只佔面板上方的空間，這樣大頭針（地圖中央）不會被面板蓋住，「新增地圖中心」才對得準。
             val mapHeightChanged = (binding.map.layoutParams as FrameLayout.LayoutParams).bottomMargin != panelHeight
             if (mapHeightChanged) {
@@ -342,6 +374,7 @@ class RouteEditorActivity : AppCompatActivity() {
             }
         }
         binding.myLocationButton.setOnClickListener { centerOnDeviceLocation() }
+        binding.lockButton.setOnClickListener { setLocked(!locked) }
         binding.panelHandleArea.setOnClickListener { setPanelExpanded(!panelExpanded) }
         setPanelExpanded(false)
     }

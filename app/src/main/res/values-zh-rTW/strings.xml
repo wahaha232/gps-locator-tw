@@ -277,4 +277,7 @@
     <string name="lock_confirm_message">裝置位置將設為 %1$s。座標會鎖定，不會再跟著地圖移動，直到你按「停止」。</string>
     <string name="lock_confirm_action">鎖定</string>
     <string name="location_locked_hint">座標已鎖定。要改選其他地點，請先按「停止」再拖曳地圖。</string>
+    <string name="return_to_lock">回到鎖定位置</string>
+    <string name="lock_here">鎖定此處</string>
+    <string name="unlock_here">解除鎖定</string>
 </resources>

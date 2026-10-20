@@ -277,4 +277,7 @@
     <string name="lock_confirm_message">设备位置将设为 %1$s。坐标会锁定，不会再跟着地图移动，直到你按“停止”。</string>
     <string name="lock_confirm_action">锁定</string>
     <string name="location_locked_hint">坐标已锁定。要改选其他地点，请先按“停止”再拖动地图。</string>
+    <string name="return_to_lock">回到锁定位置</string>
+    <string name="lock_here">锁定此处</string>
+    <string name="unlock_here">解除锁定</string>
 </resources>

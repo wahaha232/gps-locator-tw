@@ -436,7 +436,10 @@ class MainActivity : AppCompatActivity() {
         binding.favoriteCurrentButton.setOnClickListener { showSaveFavorite() }
         binding.setupMockLocationButton.setOnClickListener { showMockLocationDialog() }
         binding.myLocationButton.setOnClickListener {
-            if (hasLocationPermission()) {
+            if (isLocationLocked()) {
+                val at = MockLocationPreferences.coordinates(this)
+                binding.map.controller.animateTo(GeoPoint(at.latitude, at.longitude))
+            } else if (hasLocationPermission()) {
                 centerOnDeviceLocation()
             } else {
                 requestPermissions(PermissionAction.CENTER_ON_DEVICE)
@@ -477,6 +480,27 @@ class MainActivity : AppCompatActivity() {
             .setNegativeButton(R.string.cancel, null)
             .setPositiveButton(R.string.lock_confirm_action) { _, _ -> startMockService(coordinates) }
             .show()
+    }
+
+    private var lockMarker: org.osmdroid.views.overlay.Marker? = null
+
+    /** 鎖定時：中央大頭針收起，改在鎖定的地點留一個固定標記（隨地圖移動），「目前位置」鈕變成「回到鎖定位置」。 */
+    private fun refreshLockMarker() {
+        val locked = isLocationLocked()
+        lockMarker?.let { binding.map.overlays.remove(it) }
+        lockMarker = null
+        if (locked) {
+            val at = MockLocationPreferences.coordinates(this)
+            lockMarker = org.osmdroid.views.overlay.Marker(binding.map).apply {
+                position = GeoPoint(at.latitude, at.longitude)
+                icon = ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_map_pin)
+                setAnchor(org.osmdroid.views.overlay.Marker.ANCHOR_CENTER, org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM)
+                setOnMarkerClickListener { _, _ -> true }
+            }.also { binding.map.overlays.add(it) }
+        }
+        binding.centerPin.visibility = if (locked) View.INVISIBLE else View.VISIBLE
+        binding.myLocationButton.setText(if (locked) R.string.return_to_lock else R.string.my_location_label)
+        binding.map.invalidate()
     }
 
     /** 固定位置模擬進行中：座標欄鎖定，不隨地圖拖曳改變。 */
@@ -1682,6 +1706,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun updateServiceState(state: ServiceState) {
+        refreshLockMarkerSoon()
         when (state) {
             ServiceState.STOPPED -> {
                 binding.statusDot.setBackgroundResource(R.drawable.bg_status_stopped)
@@ -1714,6 +1739,12 @@ class MainActivity : AppCompatActivity() {
                 binding.stopButton.isEnabled = false
             }
         }
+    }
+
+    // 狀態廣播和偏好寫入可能差一點點，延後一拍再依最新狀態重畫標記。
+    private fun refreshLockMarkerSoon() {
+        refreshLockMarker()
+        binding.root.postDelayed({ refreshLockMarker() }, 600L)
     }
 
     private fun showMessage(message: String) {

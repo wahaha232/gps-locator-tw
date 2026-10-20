@@ -277,4 +277,7 @@
     <string name="lock_confirm_message">端末の位置を %1$s に設定します。座標は固定され、「停止」を押すまで地図の移動に追従しません。</string>
     <string name="lock_confirm_action">固定</string>
     <string name="location_locked_hint">座標は固定されています。別の場所を選ぶには、先に「停止」を押してから地図をドラッグしてください。</string>
+    <string name="return_to_lock">固定位置へ戻る</string>
+    <string name="lock_here">ここに固定</string>
+    <string name="unlock_here">固定を解除</string>
 </resources>
