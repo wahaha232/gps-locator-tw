@@ -392,9 +392,6 @@ class MainActivity : AppCompatActivity() {
                 topMargin = dp(12) + systemBars.top
             }
             binding.controlPanel.updatePadding(bottom = dp(18) + systemBars.bottom)
-            binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {
-                bottomMargin = dp(290) + systemBars.bottom
-            }
             binding.attributionText.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = dp(294) + systemBars.bottom
             }
