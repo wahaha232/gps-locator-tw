@@ -189,8 +189,15 @@ class RouteEditorActivity : AppCompatActivity() {
         }
     }
 
+    /** 主畫面交過來的目前標記位置；沒有就用最後儲存的位置。 */
+    private val startCoordinates: Coordinates by lazy {
+        val lat = intent.getDoubleExtra(EXTRA_START_LAT, Double.NaN)
+        val lon = intent.getDoubleExtra(EXTRA_START_LON, Double.NaN)
+        if (!lat.isNaN() && !lon.isNaN()) Coordinates(lat, lon) else MockLocationPreferences.coordinates(this)
+    }
+
     private fun configureMap() {
-        val initial = MockLocationPreferences.coordinates(this)
+        val initial = startCoordinates
         binding.map.apply {
             setTileSource(MapServiceConfiguration.tileSource())
             setMultiTouchControls(true)
@@ -397,7 +404,8 @@ class RouteEditorActivity : AppCompatActivity() {
     }
 
     private fun applyRandomRoute(count: Int, meters: Int, shape: RandomRouteShape, seed: Long?) {
-        val center = binding.map.mapCenter.let { Coordinates(it.latitude, it.longitude) }
+        // 從目前標記的位置出發，不是地圖現在碰巧停在哪裡；使用者拖過地圖也不會跑到別處。
+        val center = startCoordinates
         val random = if (seed != null) kotlin.random.Random(seed) else kotlin.random.Random.Default
         val coordinates = RandomRouteGenerator.generate(center, count, meters.toDouble(), shape, random)
         editingRouteId = null
@@ -694,6 +702,8 @@ class RouteEditorActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_ROUTE_ID = "route_id"
+        const val EXTRA_START_LAT = "start_lat"
+        const val EXTRA_START_LON = "start_lon"
         private const val SAMPLE_ROUTE_SPEED_KPH = 24f
         private const val MARKER_LIMIT = 200
         private const val SPEED_PRESET_WALK_KPH = 5f

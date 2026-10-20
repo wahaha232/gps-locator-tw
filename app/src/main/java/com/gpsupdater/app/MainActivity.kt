@@ -75,6 +75,7 @@ import org.osmdroid.events.ScrollEvent
 import org.osmdroid.events.ZoomEvent
 import org.osmdroid.util.GeoPoint
 import org.osmdroid.views.overlay.MapEventsOverlay
+import org.osmdroid.views.overlay.Polyline
 import java.text.DateFormat
 import java.io.ByteArrayOutputStream
 import java.util.Date
@@ -1158,7 +1159,20 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun openRouteEditor() {
-        routeEditorLauncher.launch(Intent(this, RouteEditorActivity::class.java))
+        // 把目前標記的位置交給編輯器：路線播放中是模擬位置，否則是地圖中央的標記；隨機生成軌跡就從這裡開始。
+        val current = if (binding.playbackPanel.visibility == View.VISIBLE &&
+            !simulationLatitude.isNaN() && !simulationLongitude.isNaN()
+        ) {
+            Coordinates(simulationLatitude, simulationLongitude)
+        } else {
+            selectedCoordinates()
+        }
+        val intent = Intent(this, RouteEditorActivity::class.java)
+        current?.let {
+            intent.putExtra(RouteEditorActivity.EXTRA_START_LAT, it.latitude)
+            intent.putExtra(RouteEditorActivity.EXTRA_START_LON, it.longitude)
+        }
+        routeEditorLauncher.launch(intent)
     }
 
     private fun startSelectedRoute(routeId: String) {
@@ -1540,6 +1554,35 @@ class MainActivity : AppCompatActivity() {
     private var simulationLatitude = Double.NaN
     private var simulationLongitude = Double.NaN
 
+    // 路線播放時在地圖上畫出已走過的軌跡；播放結束後保留，下一次開始播放才清掉。
+    private var simulationTrail: Polyline? = null
+    private val simulationTrailPoints = ArrayList<GeoPoint>()
+
+    private fun clearSimulationTrail() {
+        simulationTrailPoints.clear()
+        simulationTrail?.let { binding.map.overlays.remove(it) }
+        simulationTrail = null
+        binding.map.invalidate()
+    }
+
+    private fun appendSimulationTrail(lat: Double, lon: Double) {
+        val point = GeoPoint(lat, lon)
+        val last = simulationTrailPoints.lastOrNull()
+        // 暫停或停留時位置不動，不重複加點；上限避免超長路線佔用記憶體。
+        if (last != null && last.distanceToAsDouble(point) < TRAIL_MIN_STEP_METERS) return
+        if (simulationTrailPoints.size >= TRAIL_MAX_POINTS) simulationTrailPoints.removeAt(0)
+        simulationTrailPoints += point
+        val trail = simulationTrail ?: Polyline(binding.map).apply {
+            outlinePaint.color = getColor(R.color.accent)
+            outlinePaint.strokeWidth = dp(5).toFloat()
+            outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
+            simulationTrail = this
+            binding.map.overlays.add(this)
+        }
+        trail.setPoints(ArrayList(simulationTrailPoints))
+        binding.map.invalidate()
+    }
+
     private fun setFollowSimulation(follow: Boolean) {
         followSimulation = follow
         binding.playbackFollowButton.setText(if (follow) R.string.playback_follow_on else R.string.playback_follow_off)
@@ -1560,12 +1603,16 @@ class MainActivity : AppCompatActivity() {
         binding.playbackPanel.visibility = View.VISIBLE
         // 路線播放中，「更新位置」會停掉路線改成固定位置：按鈕文字要讓人看得出來。
         binding.startButton.setText(R.string.switch_to_static)
-        if (panelWasHidden) followSimulation = true
+        if (panelWasHidden) {
+            followSimulation = true
+            clearSimulationTrail()
+        }
         val lat = intent.getDoubleExtra(MockLocationService.EXTRA_POSITION_LAT, Double.NaN)
         val lon = intent.getDoubleExtra(MockLocationService.EXTRA_POSITION_LON, Double.NaN)
         if (!lat.isNaN() && !lon.isNaN()) {
             simulationLatitude = lat
             simulationLongitude = lon
+            appendSimulationTrail(lat, lon)
             if (followSimulation) binding.map.controller.animateTo(GeoPoint(lat, lon))
         }
         binding.playbackFollowButton.setText(
@@ -1696,5 +1743,7 @@ class MainActivity : AppCompatActivity() {
         private const val FRESH_LOCATION_TIMEOUT_MS = 10_000L
         private const val STATE_TEAM_TEMPLATE_FAVORITE_IDS = "team_template_favorite_ids"
         private const val STATE_TEAM_TEMPLATE_ROUTE_IDS = "team_template_route_ids"
+        private const val TRAIL_MIN_STEP_METERS = 2.0
+        private const val TRAIL_MAX_POINTS = 5000
     }
 }
