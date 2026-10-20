@@ -269,4 +269,6 @@
     <string name="switch_to_static">Cambiar a punto fijo</string>
     <string name="replace_route_title">¿Detener la ruta actual?</string>
     <string name="replace_route_message">Hay una ruta en reproducción. Cambiar a un punto fijo detiene la ruta y deja la ubicación en las coordenadas de la pantalla.</string>
+    <string name="my_location_label">Mi ubicación</string>
+    <string name="current_location_blocked_by_mock">Hay una simulación en curso, no se puede leer la ubicación real. Detén la simulación primero.</string>
 </resources>

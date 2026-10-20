@@ -259,4 +259,6 @@
     <string name="switch_to_static">改為固定位置</string>
     <string name="replace_route_title">停止目前的路線？</string>
     <string name="replace_route_message">路線正在播放。改為固定位置會停止這條路線，並把位置固定在畫面上的座標。</string>
+    <string name="my_location_label">目前位置</string>
+    <string name="current_location_blocked_by_mock">模擬位置正在執行，無法取得真實位置。請先停止模擬。</string>
 </resources>

@@ -265,4 +265,6 @@
     <string name="switch_to_static">Switch to fixed spot</string>
     <string name="replace_route_title">Stop the current route?</string>
     <string name="replace_route_message">A route is playing. Switching to a fixed spot stops the route and keeps the location at the coordinates on screen.</string>
+    <string name="my_location_label">My location</string>
+    <string name="current_location_blocked_by_mock">A simulation is running, so the real location can’t be read. Stop the simulation first.</string>
 </resources>

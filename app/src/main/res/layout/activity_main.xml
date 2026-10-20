@@ -140,25 +140,26 @@
 
     <com.google.android.material.button.MaterialButton
         android:id="@+id/myLocationButton"
-        style="@style/Widget.Material3.Button.IconButton.Filled.Tonal"
-        android:layout_width="52dp"
+        style="@style/Widget.GpsUpdater.Button.Tonal"
+        android:layout_width="wrap_content"
         android:layout_height="52dp"
         android:layout_gravity="end|bottom"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="290dp"
         android:contentDescription="@string/center_on_device"
         android:elevation="6dp"
-        android:insetLeft="0dp"
         android:insetTop="0dp"
-        android:insetRight="0dp"
         android:insetBottom="0dp"
+        android:paddingHorizontal="18dp"
+        android:text="@string/my_location_label"
+        android:textColor="@color/brand"
+        android:tooltipText="@string/center_on_device"
         app:backgroundTint="@color/surface"
-        app:cornerRadius="28dp"
+        app:cornerRadius="26dp"
         app:icon="@drawable/ic_my_location"
         app:iconGravity="textStart"
-        app:iconPadding="0dp"
-        app:iconTint="@color/brand"
-        android:tooltipText="@string/center_on_device" />
+        app:iconPadding="8dp"
+        app:iconTint="@color/brand" />
 
     <TextView
         android:id="@+id/attributionText"

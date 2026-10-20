@@ -14,6 +14,7 @@ import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.os.Looper
 import android.provider.Settings
 import android.util.Patterns
 import android.view.View
@@ -253,6 +254,7 @@ class MainActivity : AppCompatActivity() {
 
         configureSystemBars()
         configureMap()
+        if (savedInstanceState == null) centerOnCurrentLocationAtStart()
         configureInputs()
         configureActions()
         configureFloatingControls()
@@ -1235,20 +1237,95 @@ class MainActivity : AppCompatActivity() {
 
     @SuppressLint("MissingPermission")
     @Suppress("DEPRECATION")
-    private fun centerOnDeviceLocation() {
+    /**
+     * 把地圖移到手機「現在的真實位置」。
+     * 先用夠新的最後已知位置（2 分鐘內）；沒有就要一次新的定位（最多等 10 秒）。模擬位置不算真實位置，會被排除。
+     * [quiet] 為 true（啟動時自動定位）時，失敗不跳訊息。
+     */
+    private fun centerOnDeviceLocation(quiet: Boolean = false) {
         val locationManager = getSystemService(LocationManager::class.java)
-        val location = locationManager.getProviders(true)
-            .asSequence()
-            .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
-            .filterNot { it.isFromMockProvider }
-            .maxByOrNull { it.time }
-
-        if (location == null) {
-            showMessage(getString(R.string.current_location_unavailable))
+        val lastKnown = runCatching {
+            locationManager.getProviders(true)
+                .asSequence()
+                .mapNotNull { provider -> runCatching { locationManager.getLastKnownLocation(provider) }.getOrNull() }
+                .filterNot { it.isFromMockProvider }
+                .maxByOrNull { it.time }
+        }.getOrNull()
+        val fresh = lastKnown != null && System.currentTimeMillis() - lastKnown.time <= FRESH_LOCATION_MAX_AGE_MS
+        if (fresh) {
+            moveToDevice(lastKnown!!)
             return
         }
-        val coordinates = Coordinates(location.latitude, location.longitude)
-        moveMapTo(coordinates, binding.map.zoomLevelDouble, null)
+        val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { locationManager.isProviderEnabled(it) }.getOrDefault(false) }
+        fun giveUp() {
+            when {
+                lastKnown != null -> moveToDevice(lastKnown)
+                quiet -> Unit
+                MockLocationPreferences.isActive(this) -> showMessage(getString(R.string.current_location_blocked_by_mock))
+                else -> showMessage(getString(R.string.current_location_unavailable))
+            }
+        }
+        if (providers.isEmpty()) {
+            giveUp()
+            return
+        }
+        var finished = false
+        val cancellation = android.os.CancellationSignal()
+        val timeout = Runnable {
+            if (!finished) {
+                finished = true
+                cancellation.cancel()
+                giveUp()
+            }
+        }
+        val deliver = { location: android.location.Location? ->
+            if (!finished && location != null && !location.isFromMockProvider) {
+                finished = true
+                binding.root.removeCallbacks(timeout)
+                moveToDevice(location)
+            }
+        }
+        binding.root.postDelayed(timeout, FRESH_LOCATION_TIMEOUT_MS)
+        providers.forEach { provider ->
+            runCatching {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    locationManager.getCurrentLocation(provider, cancellation, ContextCompat.getMainExecutor(this)) { deliver(it) }
+                } else {
+                    @Suppress("DEPRECATION")
+                    locationManager.requestSingleUpdate(
+                        provider,
+                        object : android.location.LocationListener {
+                            override fun onLocationChanged(location: android.location.Location) = deliver(location)
+                            @Deprecated("Deprecated in Java")
+                            override fun onStatusChanged(provider: String?, status: Int, extras: Bundle?) = Unit
+                            override fun onProviderEnabled(provider: String) = Unit
+                            override fun onProviderDisabled(provider: String) = Unit
+                        },
+                        Looper.getMainLooper(),
+                    )
+                }
+            }
+        }
+    }
+
+    private fun moveToDevice(location: android.location.Location) {
+        moveMapTo(Coordinates(location.latitude, location.longitude), binding.map.zoomLevelDouble, null)
+    }
+
+    /**
+     * 啟動時自動定位到現在位置：模擬進行中就維持模擬的位置；還沒授權定位的話只在「第一次啟動」問一次，之後不再自動跳權限視窗。
+     */
+    private fun centerOnCurrentLocationAtStart() {
+        if (MockLocationPreferences.isActive(this)) return
+        if (hasLocationPermission()) {
+            centerOnDeviceLocation(quiet = true)
+            return
+        }
+        val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+        if (preferences.getBoolean(KEY_STARTUP_LOCATION_ASKED, false)) return
+        preferences.edit().putBoolean(KEY_STARTUP_LOCATION_ASKED, true).apply()
+        requestPermissions(PermissionAction.CENTER_ON_DEVICE)
     }
 
     private fun applyInputCoordinates(showError: Boolean = true): Boolean {
@@ -1614,6 +1691,9 @@ class MainActivity : AppCompatActivity() {
         private const val FAVORITE_ZOOM = 16.0
         private const val ONBOARDING_PREFERENCES = "onboarding"
         private const val KEY_SETUP_GUIDE_SHOWN = "mock_location_setup_guide_shown"
+        private const val KEY_STARTUP_LOCATION_ASKED = "startup_location_permission_asked"
+        private const val FRESH_LOCATION_MAX_AGE_MS = 2 * 60 * 1000L
+        private const val FRESH_LOCATION_TIMEOUT_MS = 10_000L
         private const val STATE_TEAM_TEMPLATE_FAVORITE_IDS = "team_template_favorite_ids"
         private const val STATE_TEAM_TEMPLATE_ROUTE_IDS = "team_template_route_ids"
     }
