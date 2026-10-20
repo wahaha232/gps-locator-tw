@@ -280,4 +280,5 @@
     <string name="return_to_lock">固定位置へ戻る</string>
     <string name="lock_here">ここに固定</string>
     <string name="unlock_here">固定を解除</string>
+    <string name="waypoint_edit_title">経由地を編集</string>
 </resources>

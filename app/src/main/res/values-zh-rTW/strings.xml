@@ -280,4 +280,5 @@
     <string name="return_to_lock">回到鎖定位置</string>
     <string name="lock_here">鎖定此處</string>
     <string name="unlock_here">解除鎖定</string>
+    <string name="waypoint_edit_title">編輯途經點</string>
 </resources>

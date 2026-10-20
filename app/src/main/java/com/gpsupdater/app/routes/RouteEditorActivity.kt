@@ -315,7 +315,8 @@ class RouteEditorActivity : AppCompatActivity() {
                     }
 
                     override fun longPressHelper(point: GeoPoint): Boolean {
-                        controller.animateTo(point)
+                        // 長按地圖直接在該處加途經點；單點仍是把地圖移過去。
+                        addWaypointAt(Coordinates(point.latitude, point.longitude))
                         return true
                     }
                 }),
@@ -332,7 +333,10 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
         binding.generateRouteButton.setOnClickListener { showRandomRouteDialog() }
         binding.scanGpxButton.setOnClickListener { scanGpxLauncher.launch(GpxScanActivity.intent(this)) }
-        binding.addWaypointButton.setOnClickListener { showAddWaypointDialog() }
+        binding.addWaypointButton.setOnClickListener {
+            val center = binding.map.mapCenter
+            addWaypointAt(Coordinates(center.latitude, center.longitude))
+        }
         binding.undoButton.setOnClickListener {
             if (waypoints.isNotEmpty()) {
                 waypoints.removeAt(waypoints.lastIndex)
@@ -390,17 +394,30 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.panelToggleText.text = if (expanded) "▼" else "▲"
     }
 
-    private fun showAddWaypointDialog() {
-        val waypointBinding = DialogWaypointBinding.inflate(LayoutInflater.from(this))
-        waypointBinding.nameInput.setText(
-            getString(R.string.waypoint_default_name, waypoints.size + 1),
+    /** 直接加一個途經點：名稱自動編號、停留 0 秒；要改名稱或停留時間，點地圖上的標記。 */
+    private fun addWaypointAt(coordinates: Coordinates) {
+        waypoints += RouteWaypoint(
+            name = getString(R.string.waypoint_default_name, waypoints.size + 1),
+            coordinates = coordinates,
         )
-        waypointBinding.stopInput.setText("0")
+        updateEditorState()
+    }
+
+    /** 點標記：改名稱與停留秒數，或刪除這個途經點。 */
+    private fun showEditWaypointDialog(index: Int) {
+        val waypoint = waypoints.getOrNull(index) ?: return
+        val waypointBinding = DialogWaypointBinding.inflate(LayoutInflater.from(this))
+        waypointBinding.nameInput.setText(waypoint.name)
+        waypointBinding.stopInput.setText(waypoint.stopDurationSeconds.toString())
         val dialog = MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.add_waypoint)
+            .setTitle(getString(R.string.waypoint_edit_title) + " · ${index + 1}")
             .setView(waypointBinding.root)
             .setNegativeButton(R.string.cancel, null)
-            .setPositiveButton(R.string.add, null)
+            .setNeutralButton(R.string.delete) { _, _ ->
+                waypoints.removeAt(index)
+                updateEditorState()
+            }
+            .setPositiveButton(R.string.save, null)
             .create()
         dialog.setOnShowListener {
             dialog.getButton(androidx.appcompat.app.AlertDialog.BUTTON_POSITIVE).setOnClickListener {
@@ -414,15 +431,7 @@ class RouteEditorActivity : AppCompatActivity() {
                     waypointBinding.stopLayout.error = getString(R.string.invalid_stop_duration)
                     return@setOnClickListener
                 }
-                val center = binding.map.mapCenter
-                waypoints += RouteWaypoint(
-                    name = name,
-                    coordinates = Coordinates(
-                        center.latitude,
-                        center.longitude,
-                    ),
-                    stopDurationSeconds = stopSeconds,
-                )
+                waypoints[index] = waypoint.copy(name = name, stopDurationSeconds = stopSeconds)
                 dialog.dismiss()
                 updateEditorState()
             }
@@ -614,6 +623,23 @@ class RouteEditorActivity : AppCompatActivity() {
                 position = GeoPoint(waypoint.coordinates.latitude, waypoint.coordinates.longitude)
                 title = "${index + 1}. ${waypoint.name}"
                 setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM)
+                // 點一下編輯／刪除；長按後拖曳可以移動位置。
+                setOnMarkerClickListener { _, _ ->
+                    showEditWaypointDialog(index)
+                    true
+                }
+                isDraggable = true
+                setOnMarkerDragListener(object : Marker.OnMarkerDragListener {
+                    override fun onMarkerDrag(marker: Marker) = Unit
+                    override fun onMarkerDragStart(marker: Marker) = Unit
+                    override fun onMarkerDragEnd(marker: Marker) {
+                        val moved = waypoints.getOrNull(index) ?: return
+                        waypoints[index] = moved.copy(
+                            coordinates = Coordinates(marker.position.latitude, marker.position.longitude),
+                        )
+                        updateEditorState()
+                    }
+                })
             }
         }
         binding.map.overlays.addAll(routeOverlays)

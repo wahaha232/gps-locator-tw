@@ -286,4 +286,5 @@
     <string name="return_to_lock">Back to lock</string>
     <string name="lock_here">Lock here</string>
     <string name="unlock_here">Unlock</string>
+    <string name="waypoint_edit_title">Edit waypoint</string>
 </resources>
