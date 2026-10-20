@@ -17,6 +17,7 @@ class RouteRepository(context: Context) {
 
     fun find(id: String): SimulationRoute? = all().firstOrNull { it.id == id }
 
+    @Synchronized
     fun save(route: SimulationRoute) {
         val routes = all().toMutableList()
         val existingIndex = routes.indexOfFirst { it.id == route.id }
@@ -27,6 +28,7 @@ class RouteRepository(context: Context) {
         deletions.remove(SyncedEntityType.ROUTE, route.id)
     }
 
+    @Synchronized
     fun delete(id: String) {
         preferences.edit()
             .putString(KEY_ROUTES, RouteJsonCodec.encodeList(all().filterNot { it.id == id }))
@@ -34,11 +36,13 @@ class RouteRepository(context: Context) {
         deletions.record(SyncedEntityType.ROUTE, id)
     }
 
+    @Synchronized
     fun clear() {
         deletions.recordAll(SyncedEntityType.ROUTE, all().map(SimulationRoute::id))
         preferences.edit().remove(KEY_ROUTES).apply()
     }
 
+    @Synchronized
     fun replaceAll(routes: List<SimulationRoute>) {
         preferences.edit()
             .putString(

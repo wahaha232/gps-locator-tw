@@ -77,13 +77,12 @@ class RouteEditorActivity : AppCompatActivity() {
             val result = runCatching {
                 contentResolver.openInputStream(uri)?.use { input ->
                     LocationDocumentCodec.importStream(input, fallbackName) { importCancelled.get() }
-                } ?: error("Empty document")
+                }?.also { repository.save(it.route) } ?: error("Empty document")
             }
             runOnUiThread {
                 if (isFinishing || isDestroyed) return@runOnUiThread
                 progress.dismiss()
                 result.onSuccess { imported ->
-                    repository.save(imported.route)
                     loadRoute(imported.route)
                     showMessage(
                         if (imported.wasSimplified) {
@@ -154,7 +153,62 @@ class RouteEditorActivity : AppCompatActivity() {
         configureControls()
         configureFloatingControls()
         binding.routeNameInput.setText(getString(R.string.new_route_name))
+        savedInstanceState?.let(::restoreEditorState)
         updateEditorState()
+    }
+
+    // 旋轉螢幕、切換深淺色或被系統回收時，編輯到一半的途經點與設定不能消失。
+    override fun onSaveInstanceState(outState: Bundle) {
+        super.onSaveInstanceState(outState)
+        outState.putStringArray(STATE_WP_IDS, waypoints.map { it.id }.toTypedArray())
+        outState.putStringArray(STATE_WP_NAMES, waypoints.map { it.name }.toTypedArray())
+        outState.putDoubleArray(STATE_WP_LATS, waypoints.map { it.coordinates.latitude }.toDoubleArray())
+        outState.putDoubleArray(STATE_WP_LONS, waypoints.map { it.coordinates.longitude }.toDoubleArray())
+        outState.putLongArray(STATE_WP_STOPS, waypoints.map { it.stopDurationSeconds }.toLongArray())
+        outState.putLongArray(STATE_WP_OFFSETS, waypoints.map { it.timeOffsetSeconds ?: -1L }.toLongArray())
+        outState.putLongArray(STATE_OUTAGES, outages.flatMap { listOf(it.startSeconds, it.durationSeconds) }.toLongArray())
+        outState.putString(STATE_ROUTE_ID, editingRouteId)
+        outState.putLong(STATE_CREATED_AT, editingCreatedAt)
+        outState.putDouble(STATE_START_LAT, startCoordinates.latitude)
+        outState.putDouble(STATE_START_LON, startCoordinates.longitude)
+        outState.putBoolean(STATE_LOCKED, locked)
+        outState.putBoolean(STATE_PANEL_EXPANDED, panelExpanded)
+    }
+
+    private fun restoreEditorState(state: Bundle) {
+        val ids = state.getStringArray(STATE_WP_IDS) ?: return
+        val names = state.getStringArray(STATE_WP_NAMES) ?: return
+        val lats = state.getDoubleArray(STATE_WP_LATS) ?: return
+        val lons = state.getDoubleArray(STATE_WP_LONS) ?: return
+        val stops = state.getLongArray(STATE_WP_STOPS) ?: return
+        val offsets = state.getLongArray(STATE_WP_OFFSETS) ?: return
+        waypoints.clear()
+        ids.indices.forEach { i ->
+            runCatching {
+                RouteWaypoint(
+                    id = ids[i],
+                    name = names[i],
+                    coordinates = Coordinates(lats[i], lons[i]),
+                    stopDurationSeconds = stops[i],
+                    timeOffsetSeconds = offsets[i].takeIf { it >= 0 },
+                )
+            }.getOrNull()?.let(waypoints::add)
+        }
+        outages.clear()
+        state.getLongArray(STATE_OUTAGES)?.toList()?.chunked(2)?.forEach { pair ->
+            if (pair.size == 2) runCatching { RouteOutage(pair[0], pair[1]) }.getOrNull()?.let(outages::add)
+        }
+        editingRouteId = state.getString(STATE_ROUTE_ID)
+        editingCreatedAt = state.getLong(STATE_CREATED_AT, editingCreatedAt)
+        startCoordinates = Coordinates(
+            state.getDouble(STATE_START_LAT, startCoordinates.latitude),
+            state.getDouble(STATE_START_LON, startCoordinates.longitude),
+        )
+        setPanelExpanded(state.getBoolean(STATE_PANEL_EXPANDED, false))
+        if (state.getBoolean(STATE_LOCKED, false)) {
+            locked = true
+            refreshLockMarker()
+        }
     }
 
     override fun onResume() {
@@ -710,7 +764,8 @@ class RouteEditorActivity : AppCompatActivity() {
     private fun exportRoute(route: SimulationRoute, format: LocationDocumentFormat) {
         pendingExportContent = LocationDocumentCodec.export(route, format)
         val extension = if (format == LocationDocumentFormat.GPX) "gpx" else "kml"
-        val safeName = route.name.replace(Regex("[^A-Za-z0-9._-]"), "_").ifBlank { "route" }
+        // 只換掉檔名不能用的字元，中文等文字保留；太長就截斷。
+        val safeName = route.name.replace(Regex("[\\\\/:*?\"<>|\\p{Cntrl}]"), "_").trim().trim('.').take(80).ifBlank { "route" }
         exportDocumentLauncher.launch("$safeName.$extension")
     }
 
@@ -861,6 +916,19 @@ class RouteEditorActivity : AppCompatActivity() {
         const val EXTRA_ROUTE_ID = "route_id"
         const val EXTRA_START_LAT = "start_lat"
         const val EXTRA_START_LON = "start_lon"
+        private const val STATE_WP_IDS = "state_wp_ids"
+        private const val STATE_WP_NAMES = "state_wp_names"
+        private const val STATE_WP_LATS = "state_wp_lats"
+        private const val STATE_WP_LONS = "state_wp_lons"
+        private const val STATE_WP_STOPS = "state_wp_stops"
+        private const val STATE_WP_OFFSETS = "state_wp_offsets"
+        private const val STATE_OUTAGES = "state_outages"
+        private const val STATE_ROUTE_ID = "state_route_id"
+        private const val STATE_CREATED_AT = "state_created_at"
+        private const val STATE_START_LAT = "state_start_lat"
+        private const val STATE_START_LON = "state_start_lon"
+        private const val STATE_LOCKED = "state_locked"
+        private const val STATE_PANEL_EXPANDED = "state_panel_expanded"
         private const val SAMPLE_ROUTE_SPEED_KPH = 24f
         private const val MARKER_LIMIT = 200
         private const val SPEED_PRESET_WALK_KPH = 5f

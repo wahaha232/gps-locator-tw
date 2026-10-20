@@ -140,6 +140,9 @@ object GpxStreamImporter {
         var name = ""
         var speedKph: Double? = null
         var loop: Boolean? = null
+        var useGpxTiming: Boolean? = null
+        var naturalSpeed: Boolean? = null
+        val outages = ArrayList<RouteOutage>()
         var firstEpoch: Long? = null
         var runningMax = 0L
         var missingTime = false
@@ -199,7 +202,16 @@ object GpxStreamImporter {
                     name == "name" && (parent == "trk" || parent == "rte") -> "containerName"
                     name == "speedkph" -> "speed"
                     name == "loop" -> "loop"
+                    name == "usegpxtiming" -> "useTiming"
+                    name == "naturalspeed" -> "natural"
                     else -> null
+                }
+                if (name == "outage" && container != null) {
+                    val start = attributes.getValue("start")?.trim()?.toLongOrNull()
+                    val duration = attributes.getValue("duration")?.trim()?.toLongOrNull()
+                    if (start != null && duration != null) {
+                        runCatching { RouteOutage(start, duration) }.getOrNull()?.let(container.outages::add)
+                    }
                 }
             }
             if (capture != null) text.setLength(0)
@@ -230,6 +242,8 @@ object GpxStreamImporter {
                 "containerName" -> (if (inFirstTrack) track else routeElement)?.let { if (it.name.isEmpty()) it.name = value }
                 "speed" -> (if (inFirstTrack) track else routeElement)?.let { if (it.speedKph == null) it.speedKph = value.toDoubleOrNull() }
                 "loop" -> (if (inFirstTrack) track else routeElement)?.let { if (it.loop == null) it.loop = value.toBooleanStrictOrNull() }
+                "useTiming" -> (if (inFirstTrack) track else routeElement)?.let { if (it.useGpxTiming == null) it.useGpxTiming = value.toBooleanStrictOrNull() }
+                "natural" -> (if (inFirstTrack) track else routeElement)?.let { if (it.naturalSpeed == null) it.naturalSpeed = value.toBooleanStrictOrNull() }
             }
             capture = null
             when (name) {
@@ -289,7 +303,10 @@ object GpxStreamImporter {
                     .coerceIn(SimulationRoute.MIN_SPEED_KPH, SimulationRoute.MAX_SPEED_KPH),
                 loop = collector.loop ?: false,
                 // GPX 每個點都有時間戳記時預設依時間播放，保留原本走走停停的快慢；使用者可以在編輯器切回等速。
-                useGpxTiming = SimulationRoute.hasTiming(waypoints),
+                // 本 App 匯出的檔案會記錄當初是否依時間播放；其他來源沒有這個欄位就預設依時間播放。
+                useGpxTiming = (collector.useGpxTiming ?: true) && SimulationRoute.hasTiming(waypoints),
+                outages = collector.outages.toList(),
+                naturalSpeed = collector.naturalSpeed ?: false,
             )
             return GpxImportResult(route, collector.points.count)
         }

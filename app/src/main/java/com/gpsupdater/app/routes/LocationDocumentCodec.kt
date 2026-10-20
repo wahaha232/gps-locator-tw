@@ -23,7 +23,7 @@ object LocationDocumentCodec {
         require(!value.contains("<!DOCTYPE", ignoreCase = true)) { "DOCTYPE is not allowed" }
         require(!value.contains("<!ENTITY", ignoreCase = true)) { "Entities are not allowed" }
         val bytes = value.toByteArray(Charsets.UTF_8)
-        if (GpxStreamImporter.looksLikeGpx(bytes, minOf(bytes.size, 8_192))) {
+        if (GpxStreamImporter.looksLikeGpx(bytes, minOf(bytes.size, SNIFF_BYTES))) {
             return GpxStreamImporter.import(ByteArrayInputStream(bytes), fallbackName).route
         }
         val document = secureDocumentBuilderFactory()
@@ -47,8 +47,8 @@ object LocationDocumentCodec {
         isCancelled: () -> Boolean = { false },
     ): GpxImportResult {
         val input = BufferedInputStream(stream, 64 * 1024)
-        input.mark(8_193)
-        val head = ByteArray(8_192)
+        input.mark(SNIFF_BYTES + 1)
+        val head = ByteArray(SNIFF_BYTES)
         var read = 0
         while (read < head.size) {
             val count = input.read(head, read, head.size - read)
@@ -73,10 +73,22 @@ object LocationDocumentCodec {
         append("<gpx version=\"1.1\" creator=\"GPS Locator\" xmlns=\"http://www.topografix.com/GPX/1/1\" xmlns:gpsupdater=\"https://gpsupdater.app/schema/1\">\n")
         append("  <trk><name>${escape(route.name)}</name><extensions>")
         append("<gpsupdater:speedKph>${route.speedKph}</gpsupdater:speedKph>")
-        append("<gpsupdater:loop>${route.loop}</gpsupdater:loop></extensions><trkseg>\n")
+        append("<gpsupdater:loop>${route.loop}</gpsupdater:loop>")
+        append("<gpsupdater:useGpxTiming>${route.useGpxTiming}</gpsupdater:useGpxTiming>")
+        append("<gpsupdater:naturalSpeed>${route.naturalSpeed}</gpsupdater:naturalSpeed>")
+        route.outages.forEach {
+            append("<gpsupdater:outage start=\"${it.startSeconds}\" duration=\"${it.durationSeconds}\"/>")
+        }
+        append("</extensions><trkseg>\n")
+        // 每個點都有時間才寫 <time>（標準 GPX 欄位，其他工具也看得懂）；匯入時只看相對時間，所以起點用路線建立時間。
+        val baseEpoch = route.createdAt / 1000
+        val hasTiming = SimulationRoute.hasTiming(route.waypoints)
         route.waypoints.forEach { waypoint ->
             append("    <trkpt lat=\"${waypoint.coordinates.latitude}\" lon=\"${waypoint.coordinates.longitude}\">")
             append("<name>${escape(waypoint.name)}</name>")
+            if (hasTiming) {
+                append("<time>${java.time.Instant.ofEpochSecond(baseEpoch + waypoint.timeOffsetSeconds!!)}</time>")
+            }
             append("<extensions><gpsupdater:stopSeconds>${waypoint.stopDurationSeconds}</gpsupdater:stopSeconds></extensions>")
             append("</trkpt>\n")
         }
@@ -88,11 +100,19 @@ object LocationDocumentCodec {
         append("<kml xmlns=\"http://www.opengis.net/kml/2.2\"><Document>")
         append("<name>${escape(route.name)}</name>")
         append("<ExtendedData><Data name=\"speedKph\"><value>${route.speedKph}</value></Data>")
-        append("<Data name=\"loop\"><value>${route.loop}</value></Data></ExtendedData>\n")
+        append("<Data name=\"loop\"><value>${route.loop}</value></Data>")
+        append("<Data name=\"useGpxTiming\"><value>${route.useGpxTiming}</value></Data>")
+        append("<Data name=\"naturalSpeed\"><value>${route.naturalSpeed}</value></Data>")
+        if (route.outages.isNotEmpty()) {
+            append("<Data name=\"outages\"><value>${route.outages.joinToString(",") { "${it.startSeconds}:${it.durationSeconds}" }}</value></Data>")
+        }
+        append("</ExtendedData>\n")
         route.waypoints.forEachIndexed { index, waypoint ->
             append("<Placemark><name>${escape(waypoint.name)}</name>")
             append("<ExtendedData><Data name=\"order\"><value>$index</value></Data>")
-            append("<Data name=\"stopSeconds\"><value>${waypoint.stopDurationSeconds}</value></Data></ExtendedData>")
+            append("<Data name=\"stopSeconds\"><value>${waypoint.stopDurationSeconds}</value></Data>")
+            waypoint.timeOffsetSeconds?.let { append("<Data name=\"timeOffsetSeconds\"><value>$it</value></Data>") }
+            append("</ExtendedData>")
             append("<Point><coordinates>${waypoint.coordinates.longitude},${waypoint.coordinates.latitude},0</coordinates></Point></Placemark>\n")
         }
         append("<Placemark><name>${escape(route.name)}</name><LineString><coordinates>")
@@ -123,6 +143,7 @@ object LocationDocumentCodec {
                         name = placemark.childText("name").ifBlank { "Point ${index + 1}" },
                         coordinates = coordinate,
                         stopDurationSeconds = placemark.dataValue("stopSeconds")?.toLongOrNull() ?: 0,
+                        timeOffsetSeconds = placemark.dataValue("timeOffsetSeconds")?.toLongOrNull()?.takeIf { it >= 0 },
                     )
                 }
         } else {
@@ -145,11 +166,19 @@ object LocationDocumentCodec {
         val waypoints = thinIndices(allWaypoints.size, MAX_IMPORTED_POINTS).map { allWaypoints[it] }
         val speed = document.dataValue("speedKph")?.toDoubleOrNull() ?: DEFAULT_SPEED_KPH
         val loop = document.dataValue("loop")?.toBooleanStrictOrNull() ?: false
+        val outages = document.dataValue("outages").orEmpty().split(',').mapNotNull { item ->
+            val (start, duration) = item.split(':').takeIf { it.size == 2 } ?: return@mapNotNull null
+            runCatching { RouteOutage(start.trim().toLong(), duration.trim().toLong()) }.getOrNull()
+        }
+        val timingFlag = document.dataValue("useGpxTiming")?.toBooleanStrictOrNull() ?: true
         return SimulationRoute(
             name = document.childText("name").ifBlank { fallbackName },
             waypoints = waypoints,
             speedKph = speed.coerceIn(SimulationRoute.MIN_SPEED_KPH, SimulationRoute.MAX_SPEED_KPH),
             loop = loop,
+            useGpxTiming = timingFlag && SimulationRoute.hasTiming(waypoints),
+            outages = outages,
+            naturalSpeed = document.dataValue("naturalSpeed")?.toBooleanStrictOrNull() ?: false,
         )
     }
 
@@ -221,6 +250,8 @@ object LocationDocumentCodec {
         .replace("\"", "&quot;")
         .replace("'", "&apos;")
 
+    /** 判斷是不是 GPX 時往檔案開頭看的位元組數（開頭有很長的註解也認得出來；和 GPX 開頭安全檢查的範圍一致）。 */
+    private const val SNIFF_BYTES = 64 * 1024
     private const val DEFAULT_SPEED_KPH = 30.0
     private const val MAX_IMPORTED_POINTS = GpxStreamImporter.MAX_POINTS
 }

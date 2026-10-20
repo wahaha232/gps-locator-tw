@@ -1171,17 +1171,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun readDocument(uri: Uri, maximumBytes: Int): String {
         val input = contentResolver.openInputStream(uri) ?: error("Could not open document")
-        return input.use { stream ->
-            val output = ByteArrayOutputStream()
-            val buffer = ByteArray(8_192)
-            while (true) {
-                val count = stream.read(buffer)
-                if (count < 0) break
-                check(output.size() + count <= maximumBytes) { "Document is too large" }
-                output.write(buffer, 0, count)
-            }
-            output.toString(Charsets.UTF_8.name())
-        }
+        return input.use { com.gpsupdater.app.util.BoundedIo.readText(it, maximumBytes) }
     }
 
     private fun showJoystick() {

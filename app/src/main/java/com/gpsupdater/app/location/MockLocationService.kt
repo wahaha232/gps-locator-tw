@@ -163,10 +163,7 @@ class MockLocationService : Service() {
                     routeId = null,
                 )
             } else if (replacedRoute) {
-                SimulationRunRepository(this).finishActive(
-                    SimulationOutcome.STOPPED,
-                    coordinates,
-                )
+                // 舊的執行已在 startMocking 開頭用舊位置結案，這裡只開新的。
                 SimulationRunRepository(this).begin(
                     "Joystick",
                     HistoryMode.STATIC,
