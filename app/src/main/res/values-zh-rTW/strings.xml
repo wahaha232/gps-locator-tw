@@ -273,4 +273,8 @@
     <string name="random_route_invalid">請輸入 %1$d～%2$d 個點、%3$d～%4$d 公尺的半徑，種子要是整數（或留空）。</string>
     <string name="random_route_name">隨機軌跡 %1$s</string>
     <string name="random_route_generated">已產生 %1$d 個隨機點（範圍約 %2$d 公尺）</string>
+    <string name="lock_confirm_title">鎖定這個位置？</string>
+    <string name="lock_confirm_message">裝置位置將設為 %1$s。座標會鎖定，不會再跟著地圖移動，直到你按「停止」。</string>
+    <string name="lock_confirm_action">鎖定</string>
+    <string name="location_locked_hint">座標已鎖定。要改選其他地點，請先按「停止」再拖曳地圖。</string>
 </resources>

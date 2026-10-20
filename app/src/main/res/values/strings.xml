@@ -279,4 +279,8 @@
     <string name="random_route_invalid">Enter %1$d–%2$d points, a radius of %3$d–%4$d meters, and a whole number for the seed (or leave it empty).</string>
     <string name="random_route_name">Random track %1$s</string>
     <string name="random_route_generated">Generated %1$d random points (range about %2$d m)</string>
+    <string name="lock_confirm_title">Lock this location?</string>
+    <string name="lock_confirm_message">Your device will be set to %1$s. The coordinates stay locked and do not follow the map until you press Stop.</string>
+    <string name="lock_confirm_action">Lock</string>
+    <string name="location_locked_hint">Coordinates are locked. Press Stop to pick another spot by dragging the map.</string>
 </resources>

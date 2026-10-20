@@ -321,6 +321,8 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
 
+    private var lockHintShown = false
+
     private fun configureMap() {
         val initialCoordinates = MockLocationPreferences.coordinates(this)
         binding.map.apply {
@@ -332,6 +334,10 @@ class MainActivity : AppCompatActivity() {
                     binding.playbackPanel.visibility == View.VISIBLE && followSimulation
                 ) {
                     setFollowSimulation(false)
+                }
+                if (event.action == android.view.MotionEvent.ACTION_DOWN && isLocationLocked() && !lockHintShown) {
+                    lockHintShown = true
+                    showMessage(getString(R.string.location_locked_hint))
                 }
                 false
             }
@@ -418,6 +424,7 @@ class MainActivity : AppCompatActivity() {
         binding.stopButton.setOnClickListener {
             startService(MockLocationService.stopIntent(this))
             MockLocationPreferences.setActive(this, false)
+            lockHintShown = false
             updateServiceState(ServiceState.STOPPED)
             showMessage(getString(R.string.mock_stopped))
         }
@@ -461,8 +468,20 @@ class MainActivity : AppCompatActivity() {
                 .show()
             return
         }
-        startMockService(coordinates)
+        // 鎖定位置前先確認，避免拖地圖途中誤按；確定後座標欄不再跟著地圖移動。
+        val label = selectedPlaceName?.let { "$it (${coordinates.formattedLatitude()}, ${coordinates.formattedLongitude()})" }
+            ?: "${coordinates.formattedLatitude()}, ${coordinates.formattedLongitude()}"
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.lock_confirm_title)
+            .setMessage(getString(R.string.lock_confirm_message, label))
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(R.string.lock_confirm_action) { _, _ -> startMockService(coordinates) }
+            .show()
     }
+
+    /** 固定位置模擬進行中：座標欄鎖定，不隨地圖拖曳改變。 */
+    private fun isLocationLocked(): Boolean =
+        MockLocationPreferences.isActive(this) && !isRoutePlaying()
 
     private fun isRoutePlaying(): Boolean =
         binding.playbackPanel.visibility == View.VISIBLE || MockLocationPreferences.activeRouteId(this) != null
@@ -1366,6 +1385,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun updateInputsFromMap() {
         if (binding.latitudeInput.hasFocus() || binding.longitudeInput.hasFocus()) return
+        if (isLocationLocked()) return
         val center = binding.map.mapCenter
         showCoordinates(Coordinates(center.latitude, center.longitude))
     }

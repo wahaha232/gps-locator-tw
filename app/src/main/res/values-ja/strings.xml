@@ -273,4 +273,8 @@
     <string name="random_route_invalid">ポイントは %1$d～%2$d 個、半径は %3$d～%4$d メートル、シードは整数で入力してください（空欄可）。</string>
     <string name="random_route_name">ランダム軌跡 %1$s</string>
     <string name="random_route_generated">ランダムなポイントを %1$d 個生成しました（範囲 約 %2$d m）</string>
+    <string name="lock_confirm_title">この位置に固定しますか？</string>
+    <string name="lock_confirm_message">端末の位置を %1$s に設定します。座標は固定され、「停止」を押すまで地図の移動に追従しません。</string>
+    <string name="lock_confirm_action">固定</string>
+    <string name="location_locked_hint">座標は固定されています。別の場所を選ぶには、先に「停止」を押してから地図をドラッグしてください。</string>
 </resources>

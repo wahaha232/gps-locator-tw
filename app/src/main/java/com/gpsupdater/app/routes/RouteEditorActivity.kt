@@ -254,10 +254,31 @@ class RouteEditorActivity : AppCompatActivity() {
 
     private fun configureFloatingControls() {
         binding.controlPanel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
+            val panelHeight = bottom - top
             binding.attributionText.updateLayoutParams<FrameLayout.LayoutParams> {
-                bottomMargin = bottom - top + dp(16)
+                bottomMargin = panelHeight + dp(16)
+            }
+            // 地圖只佔面板上方的空間，這樣大頭針（地圖中央）不會被面板蓋住，「新增地圖中心」才對得準。
+            val mapHeightChanged = (binding.map.layoutParams as FrameLayout.LayoutParams).bottomMargin != panelHeight
+            if (mapHeightChanged) {
+                binding.map.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
+                binding.mapPin.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
+                binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
             }
         }
+        binding.panelHandleArea.setOnClickListener { setPanelExpanded(!panelExpanded) }
+        setPanelExpanded(false)
+    }
+
+    // 預設收合：只留新增／復原途經點與「儲存並開始」，地圖才有足夠空間定位；點面板上方的把手展開速度與名稱設定。
+    private var panelExpanded = false
+
+    private fun setPanelExpanded(expanded: Boolean) {
+        panelExpanded = expanded
+        val visibility = if (expanded) View.VISIBLE else View.GONE
+        binding.nameGroup.visibility = visibility
+        binding.detailsGroup.visibility = visibility
+        binding.panelToggleText.text = if (expanded) "▼" else "▲"
     }
 
     private fun showAddWaypointDialog() {
@@ -428,6 +449,7 @@ class RouteEditorActivity : AppCompatActivity() {
         val routeName = binding.routeNameInput.text?.toString()?.trim().orEmpty()
         if (routeName.isBlank()) {
             binding.routeNameLayout.error = getString(R.string.route_name_required)
+            setPanelExpanded(true)
             return
         }
         val route = runCatching {

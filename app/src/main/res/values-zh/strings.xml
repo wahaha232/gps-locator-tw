@@ -273,4 +273,8 @@
     <string name="random_route_invalid">请输入 %1$d～%2$d 个点、%3$d～%4$d 米的半径，种子要是整数（或留空）。</string>
     <string name="random_route_name">随机轨迹 %1$s</string>
     <string name="random_route_generated">已生成 %1$d 个随机点（范围约 %2$d 米）</string>
+    <string name="lock_confirm_title">锁定这个位置？</string>
+    <string name="lock_confirm_message">设备位置将设为 %1$s。坐标会锁定，不会再跟着地图移动，直到你按“停止”。</string>
+    <string name="lock_confirm_action">锁定</string>
+    <string name="location_locked_hint">坐标已锁定。要改选其他地点，请先按“停止”再拖动地图。</string>
 </resources>

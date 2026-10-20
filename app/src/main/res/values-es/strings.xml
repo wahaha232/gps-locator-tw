@@ -283,4 +283,8 @@
     <string name="random_route_invalid">Introduce %1$d–%2$d puntos, un radio de %3$d–%4$d metros y una semilla entera (o déjala vacía).</string>
     <string name="random_route_name">Recorrido aleatorio %1$s</string>
     <string name="random_route_generated">Se generaron %1$d puntos aleatorios (área de unos %2$d m)</string>
+    <string name="lock_confirm_title">¿Fijar esta ubicación?</string>
+    <string name="lock_confirm_message">El dispositivo se establecerá en %1$s. Las coordenadas quedan fijas y no siguen al mapa hasta que pulses Detener.</string>
+    <string name="lock_confirm_action">Fijar</string>
+    <string name="location_locked_hint">Las coordenadas están fijas. Pulsa Detener para elegir otro lugar arrastrando el mapa.</string>
 </resources>
