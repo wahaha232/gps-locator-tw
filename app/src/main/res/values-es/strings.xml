@@ -291,4 +291,16 @@
     <string name="lock_here">Fijar aquí</string>
     <string name="unlock_here">Quitar fijación</string>
     <string name="waypoint_edit_title">Editar punto</string>
+    <string name="check_update">Buscar actualizaciones</string>
+    <string name="update_checking">Buscando actualizaciones…</string>
+    <string name="update_up_to_date">Tienes la última versión (%1$s).</string>
+    <string name="update_available_title">Actualización disponible</string>
+    <string name="update_available_message">Hay una versión %1$s (tienes %2$s). ¿Descargar e instalar ahora?</string>
+    <string name="update_action">Actualizar</string>
+    <string name="update_later">Más tarde</string>
+    <string name="update_downloading">Descargando actualización…</string>
+    <string name="update_failed">Error de actualización: %1$s</string>
+    <string name="update_check_failed">No se pudo buscar actualizaciones. Revisa tu conexión.</string>
+    <string name="update_checksum_failed">El archivo descargado no superó la verificación y se descartó.</string>
+    <string name="update_allow_install">Para instalar actualizaciones, permite que esta app instale apps desconocidas en la siguiente pantalla y vuelve a pulsar Buscar actualizaciones.</string>
 </resources>

@@ -281,4 +281,16 @@
     <string name="lock_here">锁定此处</string>
     <string name="unlock_here">解除锁定</string>
     <string name="waypoint_edit_title">编辑途经点</string>
+    <string name="check_update">检查更新</string>
+    <string name="update_checking">正在检查更新…</string>
+    <string name="update_up_to_date">当前已是最新版本（%1$s）。</string>
+    <string name="update_available_title">有新版本</string>
+    <string name="update_available_message">有新版本 %1$s（当前 %2$s）。要现在下载并安装吗？</string>
+    <string name="update_action">更新</string>
+    <string name="update_later">稍后</string>
+    <string name="update_downloading">正在下载更新…</string>
+    <string name="update_failed">更新失败：%1$s</string>
+    <string name="update_check_failed">无法检查更新，请确认网络连接。</string>
+    <string name="update_checksum_failed">下载的文件验证失败，已丢弃。</string>
+    <string name="update_allow_install">要安装更新，请在接下来的界面允许本应用安装未知应用，再重新点一次“检查更新”。</string>
 </resources>

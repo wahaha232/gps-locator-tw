@@ -60,6 +60,9 @@ import com.gpsupdater.app.product.EntitlementRepository
 import com.gpsupdater.app.product.ProductFeature
 import com.gpsupdater.app.privacy.LocalTestDataCleaner
 import com.gpsupdater.app.routes.RouteEditorActivity
+import com.gpsupdater.app.update.UpdateInfo
+import com.gpsupdater.app.update.UpdateManager
+import com.gpsupdater.app.update.UpdateVerificationException
 import com.gpsupdater.app.routes.GeoMath
 import com.gpsupdater.app.sync.CloudCipher
 import com.gpsupdater.app.sync.CloudSyncClient
@@ -255,7 +258,10 @@ class MainActivity : AppCompatActivity() {
 
         configureSystemBars()
         configureMap()
-        if (savedInstanceState == null) centerOnCurrentLocationAtStart()
+        if (savedInstanceState == null) {
+            centerOnCurrentLocationAtStart()
+            maybeAutoCheckUpdate()
+        }
         configureInputs()
         configureActions()
         configureFloatingControls()
@@ -317,6 +323,8 @@ class MainActivity : AppCompatActivity() {
     override fun onDestroy() {
         cloudSyncClient?.close()
         geocoder.close()
+        updateCancelled.set(true)
+        updateExecutor.shutdownNow()
         binding.map.onDetach()
         super.onDestroy()
     }
@@ -642,6 +650,7 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.mock_location_settings),
             getString(R.string.accessibility_settings),
             getString(R.string.open_developer_options),
+            getString(R.string.check_update),
         )
         MaterialAlertDialogBuilder(this)
             .setTitle(R.string.app_settings)
@@ -659,10 +668,103 @@ class MainActivity : AppCompatActivity() {
                     9 -> showMockLocationSettings()
                     10 -> openAccessibilitySettings()
                     11 -> openDeveloperOptions()
+                    12 -> checkForUpdate(silent = false)
                 }
             }
             .setNegativeButton(R.string.close, null)
             .show()
+    }
+
+    private val updateExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
+    private val updateCancelled = java.util.concurrent.atomic.AtomicBoolean(false)
+
+    /** 每天最多自動查一次；沒有新版就完全不打擾。 */
+    private fun maybeAutoCheckUpdate() {
+        val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+        val now = System.currentTimeMillis()
+        if (now - preferences.getLong(KEY_LAST_UPDATE_CHECK, 0L) < UPDATE_CHECK_INTERVAL_MS) return
+        preferences.edit().putLong(KEY_LAST_UPDATE_CHECK, now).apply()
+        checkForUpdate(silent = true)
+    }
+
+    private fun checkForUpdate(silent: Boolean) {
+        if (!silent) showMessage(getString(R.string.update_checking))
+        updateExecutor.execute {
+            val result = runCatching { UpdateManager.checkLatest() }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                result.onSuccess { info ->
+                    if (info != null) showUpdateAvailable(info)
+                    else if (!silent) showMessage(getString(R.string.update_up_to_date, BuildConfig.VERSION_NAME))
+                }.onFailure {
+                    if (!silent) showMessage(getString(R.string.update_check_failed))
+                }
+            }
+        }
+    }
+
+    private fun showUpdateAvailable(info: UpdateInfo) {
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.update_available_title)
+            .setMessage(getString(R.string.update_available_message, info.versionName, BuildConfig.VERSION_NAME))
+            .setNegativeButton(R.string.update_later, null)
+            .setPositiveButton(R.string.update_action) { _, _ -> startUpdateDownload(info) }
+            .show()
+    }
+
+    private fun startUpdateDownload(info: UpdateInfo) {
+        if (!UpdateManager.canInstall(this)) {
+            MaterialAlertDialogBuilder(this)
+                .setMessage(R.string.update_allow_install)
+                .setNegativeButton(R.string.cancel, null)
+                .setPositiveButton(R.string.go_to_settings) { _, _ -> UpdateManager.openInstallPermissionSettings(this) }
+                .show()
+            return
+        }
+        updateCancelled.set(false)
+        val bar = com.google.android.material.progressindicator.LinearProgressIndicator(this).apply {
+            max = 100
+            isIndeterminate = true
+        }
+        val container = android.widget.LinearLayout(this).apply {
+            setPadding(dp(24), dp(16), dp(24), dp(8))
+            addView(
+                bar,
+                android.widget.LinearLayout.LayoutParams(
+                    android.widget.LinearLayout.LayoutParams.MATCH_PARENT,
+                    android.widget.LinearLayout.LayoutParams.WRAP_CONTENT,
+                ),
+            )
+        }
+        val progress = MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.update_downloading)
+            .setView(container)
+            .setCancelable(false)
+            .setNegativeButton(R.string.cancel) { _, _ -> updateCancelled.set(true) }
+            .show()
+        updateExecutor.execute {
+            val result = runCatching {
+                UpdateManager.download(applicationContext, info, { updateCancelled.get() }) { percent ->
+                    runOnUiThread {
+                        bar.isIndeterminate = false
+                        bar.setProgressCompat(percent, true)
+                    }
+                }
+            }
+            runOnUiThread {
+                if (isFinishing || isDestroyed) return@runOnUiThread
+                progress.dismiss()
+                result.onSuccess { UpdateManager.install(this, it) }.onFailure { error ->
+                    when {
+                        updateCancelled.get() -> Unit
+                        error is UpdateVerificationException -> showMessage(getString(R.string.update_checksum_failed))
+                        else -> showMessage(
+                            getString(R.string.update_failed, (error.message ?: error.javaClass.simpleName).take(100)),
+                        )
+                    }
+                }
+            }
+        }
     }
 
     private fun showPrivacyAndData() {
@@ -1794,6 +1896,8 @@ class MainActivity : AppCompatActivity() {
         private const val FRESH_LOCATION_TIMEOUT_MS = 10_000L
         private const val STATE_TEAM_TEMPLATE_FAVORITE_IDS = "team_template_favorite_ids"
         private const val STATE_TEAM_TEMPLATE_ROUTE_IDS = "team_template_route_ids"
+        private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
+        private const val UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
         private const val TRAIL_MIN_STEP_METERS = 2.0
         private const val TRAIL_MAX_POINTS = 5000
     }

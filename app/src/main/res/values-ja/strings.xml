@@ -281,4 +281,16 @@
     <string name="lock_here">ここに固定</string>
     <string name="unlock_here">固定を解除</string>
     <string name="waypoint_edit_title">経由地を編集</string>
+    <string name="check_update">アップデートを確認</string>
+    <string name="update_checking">アップデートを確認中…</string>
+    <string name="update_up_to_date">最新バージョンです（%1$s）。</string>
+    <string name="update_available_title">新しいバージョンがあります</string>
+    <string name="update_available_message">バージョン %1$s があります（現在 %2$s）。今すぐダウンロードしてインストールしますか？</string>
+    <string name="update_action">更新</string>
+    <string name="update_later">あとで</string>
+    <string name="update_downloading">アップデートをダウンロード中…</string>
+    <string name="update_failed">アップデートに失敗しました: %1$s</string>
+    <string name="update_check_failed">アップデートを確認できません。接続を確認してください。</string>
+    <string name="update_checksum_failed">ダウンロードしたファイルの検証に失敗したため破棄しました。</string>
+    <string name="update_allow_install">アップデートをインストールするには、次の画面でこのアプリに不明なアプリのインストールを許可し、もう一度「アップデートを確認」を実行してください。</string>
 </resources>
