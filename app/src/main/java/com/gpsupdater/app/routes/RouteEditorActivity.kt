@@ -190,13 +190,85 @@ class RouteEditorActivity : AppCompatActivity() {
     }
 
     /** 主畫面交過來的目前標記位置；沒有就用最後儲存的位置。 */
-    private val startCoordinates: Coordinates by lazy {
+    private var startCoordinates: Coordinates = Coordinates.DEFAULT
+    private fun resolveStartCoordinates(): Coordinates {
         val lat = intent.getDoubleExtra(EXTRA_START_LAT, Double.NaN)
         val lon = intent.getDoubleExtra(EXTRA_START_LON, Double.NaN)
-        if (!lat.isNaN() && !lon.isNaN()) Coordinates(lat, lon) else MockLocationPreferences.coordinates(this)
+        return if (!lat.isNaN() && !lon.isNaN()) Coordinates(lat, lon) else MockLocationPreferences.coordinates(this)
+    }
+
+    private val locationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions(),
+    ) { granted ->
+        if (granted.values.any { it }) centerOnDeviceLocation() else showMessage(getString(R.string.current_location_unavailable))
+    }
+
+    private fun hasLocationPermission(): Boolean =
+        listOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION).any {
+            androidx.core.content.ContextCompat.checkSelfPermission(this, it) == android.content.pm.PackageManager.PERMISSION_GRANTED
+        }
+
+    /** 「目前位置」：取得手機的真實位置，地圖移過去，之後隨機生成軌跡也從這裡出發。模擬進行中讀不到真實位置。 */
+    @android.annotation.SuppressLint("MissingPermission")
+    private fun centerOnDeviceLocation() {
+        if (!hasLocationPermission()) {
+            locationPermissionLauncher.launch(
+                arrayOf(android.Manifest.permission.ACCESS_FINE_LOCATION, android.Manifest.permission.ACCESS_COARSE_LOCATION),
+            )
+            return
+        }
+        val manager = getSystemService(android.location.LocationManager::class.java)
+        fun moveTo(location: android.location.Location) {
+            startCoordinates = Coordinates(location.latitude, location.longitude)
+            binding.map.controller.animateTo(GeoPoint(location.latitude, location.longitude))
+        }
+        fun giveUp() = showMessage(
+            getString(
+                if (MockLocationPreferences.isActive(this)) R.string.current_location_blocked_by_mock
+                else R.string.current_location_unavailable,
+            ),
+        )
+        val lastKnown = runCatching {
+            manager.getProviders(true)
+                .mapNotNull { runCatching { manager.getLastKnownLocation(it) }.getOrNull() }
+                .filterNot { it.isFromMockProvider }
+                .maxByOrNull { it.time }
+        }.getOrNull()
+        if (lastKnown != null && System.currentTimeMillis() - lastKnown.time <= 2 * 60 * 1000L) {
+            moveTo(lastKnown)
+            return
+        }
+        val providers = listOf(android.location.LocationManager.GPS_PROVIDER, android.location.LocationManager.NETWORK_PROVIDER)
+            .filter { runCatching { manager.isProviderEnabled(it) }.getOrDefault(false) }
+        if (providers.isEmpty() || android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.R) {
+            lastKnown?.let(::moveTo) ?: giveUp()
+            return
+        }
+        var finished = false
+        val cancellation = android.os.CancellationSignal()
+        val timeout = Runnable {
+            if (!finished) {
+                finished = true
+                cancellation.cancel()
+                lastKnown?.let(::moveTo) ?: giveUp()
+            }
+        }
+        binding.root.postDelayed(timeout, 10_000L)
+        providers.forEach { provider ->
+            runCatching {
+                manager.getCurrentLocation(provider, cancellation, androidx.core.content.ContextCompat.getMainExecutor(this)) { location ->
+                    if (!finished && location != null && !location.isFromMockProvider) {
+                        finished = true
+                        binding.root.removeCallbacks(timeout)
+                        moveTo(location)
+                    }
+                }
+            }
+        }
     }
 
     private fun configureMap() {
+        startCoordinates = resolveStartCoordinates()
         val initial = startCoordinates
         binding.map.apply {
             setTileSource(MapServiceConfiguration.tileSource())
@@ -258,6 +330,9 @@ class RouteEditorActivity : AppCompatActivity() {
             binding.attributionText.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(16)
             }
+            binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {
+                bottomMargin = panelHeight + dp(16)
+            }
             // 地圖只佔面板上方的空間，這樣大頭針（地圖中央）不會被面板蓋住，「新增地圖中心」才對得準。
             val mapHeightChanged = (binding.map.layoutParams as FrameLayout.LayoutParams).bottomMargin != panelHeight
             if (mapHeightChanged) {
@@ -266,6 +341,7 @@ class RouteEditorActivity : AppCompatActivity() {
                 binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
             }
         }
+        binding.myLocationButton.setOnClickListener { centerOnDeviceLocation() }
         binding.panelHandleArea.setOnClickListener { setPanelExpanded(!panelExpanded) }
         setPanelExpanded(false)
     }
