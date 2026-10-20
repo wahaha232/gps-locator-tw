@@ -43,6 +43,17 @@
             android:textStyle="bold" />
 
         <ImageButton
+            android:id="@+id/generateRouteButton"
+            android:layout_width="48dp"
+            android:layout_height="48dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:contentDescription="@string/random_route_generate"
+            android:padding="12dp"
+            android:src="@drawable/ic_shuffle"
+            android:tint="@color/brand"
+            android:tooltipText="@string/random_route_generate" />
+
+        <ImageButton
             android:id="@+id/scanGpxButton"
             android:layout_width="48dp"
             android:layout_height="48dp"

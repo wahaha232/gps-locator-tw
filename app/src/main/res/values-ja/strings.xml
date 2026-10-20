@@ -261,4 +261,16 @@
     <string name="replace_route_message">ルートを再生中です。固定位置に切り替えるとルートが停止し、画面の座標に固定されます。</string>
     <string name="my_location_label">現在地</string>
     <string name="current_location_blocked_by_mock">シミュレーション中のため実際の位置を取得できません。先にシミュレーションを停止してください。</string>
+    <string name="random_route_generate">ランダムな軌跡を生成</string>
+    <string name="random_route_points_hint">ポイント数（2～500）</string>
+    <string name="random_route_radius_hint">範囲の半径（メートル、50～50000）</string>
+    <string name="random_route_shape_walk">ランダムウォーク（連続した経路）</string>
+    <string name="random_route_shape_loop">周回（開始地点に戻る）</string>
+    <string name="random_route_seed_hint">乱数シード（任意。同じシードなら同じ軌跡になります）</string>
+    <string name="random_route_replace_note">現在の経由点は置き換えられます。</string>
+    <string name="random_route_action">生成</string>
+    <string name="random_route_action_replace">置き換えて生成</string>
+    <string name="random_route_invalid">ポイントは %1$d～%2$d 個、半径は %3$d～%4$d メートル、シードは整数で入力してください（空欄可）。</string>
+    <string name="random_route_name">ランダム軌跡 %1$s</string>
+    <string name="random_route_generated">ランダムなポイントを %1$d 個生成しました（範囲 約 %2$d m）</string>
 </resources>

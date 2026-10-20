@@ -261,4 +261,16 @@
     <string name="replace_route_message">路线正在播放。改为固定位置会停止这条路线，并把位置固定在画面上的坐标。</string>
     <string name="my_location_label">当前位置</string>
     <string name="current_location_blocked_by_mock">模拟位置正在运行，无法获取真实位置。请先停止模拟。</string>
+    <string name="random_route_generate">随机生成轨迹</string>
+    <string name="random_route_points_hint">点数（2～500）</string>
+    <string name="random_route_radius_hint">范围半径（米，50～50000）</string>
+    <string name="random_route_shape_walk">随机漫步（连续路径）</string>
+    <string name="random_route_shape_loop">环形回路（回到起点）</string>
+    <string name="random_route_seed_hint">随机种子（选填，相同种子会生成相同轨迹）</string>
+    <string name="random_route_replace_note">目前的途经点会被取代。</string>
+    <string name="random_route_action">生成</string>
+    <string name="random_route_action_replace">取代并生成</string>
+    <string name="random_route_invalid">请输入 %1$d～%2$d 个点、%3$d～%4$d 米的半径，种子要是整数（或留空）。</string>
+    <string name="random_route_name">随机轨迹 %1$s</string>
+    <string name="random_route_generated">已生成 %1$d 个随机点（范围约 %2$d 米）</string>
 </resources>

@@ -267,4 +267,16 @@
     <string name="replace_route_message">A route is playing. Switching to a fixed spot stops the route and keeps the location at the coordinates on screen.</string>
     <string name="my_location_label">My location</string>
     <string name="current_location_blocked_by_mock">A simulation is running, so the real location can’t be read. Stop the simulation first.</string>
+    <string name="random_route_generate">Generate random track</string>
+    <string name="random_route_points_hint">Number of points (2–500)</string>
+    <string name="random_route_radius_hint">Range radius in meters (50–50000)</string>
+    <string name="random_route_shape_walk">Random walk (continuous path)</string>
+    <string name="random_route_shape_loop">Loop (comes back to the start)</string>
+    <string name="random_route_seed_hint">Random seed (optional; the same seed gives the same track)</string>
+    <string name="random_route_replace_note">The current waypoints will be replaced.</string>
+    <string name="random_route_action">Generate</string>
+    <string name="random_route_action_replace">Replace and generate</string>
+    <string name="random_route_invalid">Enter %1$d–%2$d points, a radius of %3$d–%4$d meters, and a whole number for the seed (or leave it empty).</string>
+    <string name="random_route_name">Random track %1$s</string>
+    <string name="random_route_generated">Generated %1$d random points (range about %2$d m)</string>
 </resources>

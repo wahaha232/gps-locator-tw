@@ -271,4 +271,16 @@
     <string name="replace_route_message">Hay una ruta en reproducción. Cambiar a un punto fijo detiene la ruta y deja la ubicación en las coordenadas de la pantalla.</string>
     <string name="my_location_label">Mi ubicación</string>
     <string name="current_location_blocked_by_mock">Hay una simulación en curso, no se puede leer la ubicación real. Detén la simulación primero.</string>
+    <string name="random_route_generate">Generar un recorrido aleatorio</string>
+    <string name="random_route_points_hint">Número de puntos (2–500)</string>
+    <string name="random_route_radius_hint">Radio del área en metros (50–50000)</string>
+    <string name="random_route_shape_walk">Paseo aleatorio (camino continuo)</string>
+    <string name="random_route_shape_loop">Circuito (vuelve al inicio)</string>
+    <string name="random_route_seed_hint">Semilla aleatoria (opcional; la misma semilla da el mismo recorrido)</string>
+    <string name="random_route_replace_note">Se reemplazarán los puntos actuales.</string>
+    <string name="random_route_action">Generar</string>
+    <string name="random_route_action_replace">Reemplazar y generar</string>
+    <string name="random_route_invalid">Introduce %1$d–%2$d puntos, un radio de %3$d–%4$d metros y una semilla entera (o déjala vacía).</string>
+    <string name="random_route_name">Recorrido aleatorio %1$s</string>
+    <string name="random_route_generated">Se generaron %1$d puntos aleatorios (área de unos %2$d m)</string>
 </resources>

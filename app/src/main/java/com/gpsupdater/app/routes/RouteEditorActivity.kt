@@ -222,6 +222,7 @@ class RouteEditorActivity : AppCompatActivity() {
         binding.sampleRouteButton.setOnClickListener { loadSampleRoute() }
         binding.zoomInButton.setOnClickListener { binding.map.controller.zoomIn() }
         binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
+        binding.generateRouteButton.setOnClickListener { showRandomRouteDialog() }
         binding.scanGpxButton.setOnClickListener { scanGpxLauncher.launch(GpxScanActivity.intent(this)) }
         binding.addWaypointButton.setOnClickListener { showAddWaypointDialog() }
         binding.undoButton.setOnClickListener {
@@ -312,6 +313,95 @@ class RouteEditorActivity : AppCompatActivity() {
         updateEditorState()
         zoomToWaypoints()
         showMessage(getString(R.string.sample_route_loaded))
+    }
+
+    /** 隨機生成軌跡：從地圖中心出發，依點數、範圍、型態（隨機漫步／環形迴路）產生途經點，可指定種子以重現同一條軌跡。 */
+    private fun showRandomRouteDialog() {
+        val container = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(24), dp(8), dp(24), 0)
+        }
+        if (waypoints.isNotEmpty()) {
+            container.addView(
+                android.widget.TextView(this).apply {
+                    setText(R.string.random_route_replace_note)
+                    setPadding(0, 0, 0, dp(8))
+                },
+            )
+        }
+        fun field(hintRes: Int, default: String) = EditText(this).apply {
+            hint = getString(hintRes)
+            setText(default)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            container.addView(this)
+        }
+        val points = field(R.string.random_route_points_hint, "30")
+        val radius = field(R.string.random_route_radius_hint, "1000")
+        val group = android.widget.RadioGroup(this).apply {
+            orientation = android.widget.RadioGroup.VERTICAL
+            setPadding(0, dp(8), 0, dp(4))
+        }
+        val walk = android.widget.RadioButton(this).apply {
+            id = View.generateViewId()
+            setText(R.string.random_route_shape_walk)
+            isChecked = true
+        }
+        val loop = android.widget.RadioButton(this).apply {
+            id = View.generateViewId()
+            setText(R.string.random_route_shape_loop)
+        }
+        group.addView(walk)
+        group.addView(loop)
+        container.addView(group)
+        val seed = EditText(this).apply {
+            hint = getString(R.string.random_route_seed_hint)
+            inputType = InputType.TYPE_CLASS_NUMBER
+            container.addView(this)
+        }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.random_route_generate)
+            .setView(container)
+            .setNegativeButton(R.string.cancel, null)
+            .setPositiveButton(if (waypoints.isEmpty()) R.string.random_route_action else R.string.random_route_action_replace) { _, _ ->
+                val count = points.text.toString().trim().toIntOrNull()
+                val meters = radius.text.toString().trim().toIntOrNull()
+                val seedValue = seed.text.toString().trim().takeIf { it.isNotEmpty() }?.toLongOrNull()
+                val valid = count in RandomRouteGenerator.MIN_POINTS..RandomRouteGenerator.MAX_POINTS &&
+                    meters in RandomRouteGenerator.MIN_RADIUS_METERS..RandomRouteGenerator.MAX_RADIUS_METERS &&
+                    (seed.text.isNullOrBlank() || seedValue != null)
+                if (!valid) {
+                    showMessage(
+                        getString(
+                            R.string.random_route_invalid,
+                            RandomRouteGenerator.MIN_POINTS, RandomRouteGenerator.MAX_POINTS,
+                            RandomRouteGenerator.MIN_RADIUS_METERS, RandomRouteGenerator.MAX_RADIUS_METERS,
+                        ),
+                    )
+                } else {
+                    applyRandomRoute(count!!, meters!!, if (loop.isChecked) RandomRouteShape.LOOP else RandomRouteShape.WALK, seedValue)
+                }
+            }
+            .show()
+    }
+
+    private fun applyRandomRoute(count: Int, meters: Int, shape: RandomRouteShape, seed: Long?) {
+        val center = binding.map.mapCenter.let { Coordinates(it.latitude, it.longitude) }
+        val random = if (seed != null) kotlin.random.Random(seed) else kotlin.random.Random.Default
+        val coordinates = RandomRouteGenerator.generate(center, count, meters.toDouble(), shape, random)
+        editingRouteId = null
+        editingCreatedAt = System.currentTimeMillis()
+        waypoints.clear()
+        coordinates.forEachIndexed { index, point ->
+            waypoints += RouteWaypoint(name = getString(R.string.waypoint_default_name, index + 1), coordinates = point)
+        }
+        binding.routeNameInput.setText(
+            getString(R.string.random_route_name, java.text.SimpleDateFormat("MMdd-HHmm", Locale.US).format(java.util.Date())),
+        )
+        binding.loopSwitch.isChecked = shape == RandomRouteShape.LOOP
+        outages.clear()
+        updateEditorState()
+        zoomToWaypoints()
+        showMessage(getString(R.string.random_route_generated, coordinates.size, meters))
     }
 
     private fun saveAndStart() {
