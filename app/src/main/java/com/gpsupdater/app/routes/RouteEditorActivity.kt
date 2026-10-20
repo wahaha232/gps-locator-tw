@@ -428,7 +428,10 @@ class RouteEditorActivity : AppCompatActivity() {
             if (mapHeightChanged) {
                 binding.map.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
                 binding.mapPin.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
-                binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
+                binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> {
+                    // 縮放鈕疊在「鎖定此處」與「目前位置」兩顆按鈕的正上方（各 52dp、間距 8dp），不會重疊。
+                    bottomMargin = panelHeight + dp(16) + dp(52) + dp(8) + dp(52) + dp(12)
+                }
             }
         }
         binding.myLocationButton.setOnClickListener { centerOnDeviceLocation() }

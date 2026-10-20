@@ -597,6 +597,11 @@ class MainActivity : AppCompatActivity() {
             binding.myLocationButton.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(12)
             }
+            // 縮放鈕疊在「目前位置」按鈕正上方，一起跟著底部面板的實際高度走；
+            // 不能再用「垂直置中」，螢幕比較矮或面板比較高時會和「目前位置」重疊。
+            binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> {
+                bottomMargin = panelHeight + dp(12) + dp(52) + dp(12)
+            }
             binding.attributionText.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(16)
             }
