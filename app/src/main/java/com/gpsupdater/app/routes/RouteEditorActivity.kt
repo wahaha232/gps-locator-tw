@@ -329,11 +329,22 @@ class RouteEditorActivity : AppCompatActivity() {
                 },
             )
         }
-        fun field(hintRes: Int, default: String) = EditText(this).apply {
-            hint = getString(hintRes)
-            setText(default)
-            inputType = InputType.TYPE_CLASS_NUMBER
-            container.addView(this)
+        // 欄位填了預設值後 hint 會看不見，所以每個欄位上方都放一行標籤。
+        fun label(textRes: Int) = container.addView(
+            android.widget.TextView(this).apply {
+                setText(textRes)
+                textSize = 13f
+                setPadding(0, dp(8), 0, 0)
+            },
+        )
+        fun field(hintRes: Int, default: String): EditText {
+            label(hintRes)
+            return EditText(this).apply {
+                hint = getString(hintRes)
+                setText(default)
+                inputType = InputType.TYPE_CLASS_NUMBER
+                container.addView(this)
+            }
         }
         val points = field(R.string.random_route_points_hint, "30")
         val radius = field(R.string.random_route_radius_hint, "1000")
@@ -353,6 +364,7 @@ class RouteEditorActivity : AppCompatActivity() {
         group.addView(walk)
         group.addView(loop)
         container.addView(group)
+        label(R.string.random_route_seed_hint)
         val seed = EditText(this).apply {
             hint = getString(R.string.random_route_seed_hint)
             inputType = InputType.TYPE_CLASS_NUMBER
