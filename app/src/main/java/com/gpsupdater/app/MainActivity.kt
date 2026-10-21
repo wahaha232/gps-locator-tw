@@ -664,7 +664,8 @@ class MainActivity : AppCompatActivity() {
             getString(R.string.check_update),
         )
         MaterialAlertDialogBuilder(this)
-            .setTitle(R.string.app_settings)
+            // 版本號直接顯示在設定視窗標題，不用再進「關於與支援」才看得到。
+            .setTitle(getString(R.string.app_settings) + " · " + BuildConfig.VERSION_NAME)
             .setItems(options) { _, index ->
                 when (index) {
                     0 -> openRouteEditor()
