@@ -599,6 +599,15 @@ class MainActivity : AppCompatActivity() {
             binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(12) + dp(52) + dp(12)
             }
+            // 地圖只佔底部面板上方的空間：圖釘（地圖中央）永遠看得到，座標也永遠是畫面上看到的位置；
+            // 面板在小螢幕或播放路線時變高，也不會再蓋住圖釘。改變大小前記住中心，之後放回去，座標不會因此跳動。
+            val mapParams = binding.map.layoutParams as FrameLayout.LayoutParams
+            if (mapParams.bottomMargin != panelHeight) {
+                val center = binding.map.mapCenter
+                binding.map.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
+                binding.centerPin.updateLayoutParams<FrameLayout.LayoutParams> { bottomMargin = panelHeight }
+                binding.map.post { binding.map.controller.setCenter(center) }
+            }
             binding.attributionText.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(16)
             }
@@ -1504,6 +1513,8 @@ class MainActivity : AppCompatActivity() {
     private fun updateInputsFromMap() {
         if (binding.latitudeInput.hasFocus() || binding.longitudeInput.hasFocus()) return
         if (isLocationLocked()) return
+        // 路線播放且地圖跟隨中：座標欄由模擬位置決定（updatePlaybackPanel），拖動中的地圖不能蓋掉它。
+        if (binding.playbackPanel.visibility == View.VISIBLE && followSimulation) return
         val center = binding.map.mapCenter
         showCoordinates(Coordinates(center.latitude, center.longitude))
     }
@@ -1751,6 +1762,10 @@ class MainActivity : AppCompatActivity() {
             simulationLatitude = lat
             simulationLongitude = lon
             appendSimulationTrail(lat, lon)
+            // 跟隨開啟時，座標欄顯示「模擬走到的位置」，不是地圖碰巧停在哪裡；關閉跟隨（自己拖地圖）才改回地圖中央。
+            if (followSimulation && !binding.latitudeInput.hasFocus() && !binding.longitudeInput.hasFocus()) {
+                showCoordinates(Coordinates(lat, lon))
+            }
             if (followSimulation) binding.map.controller.animateTo(GeoPoint(lat, lon))
         }
         binding.playbackFollowButton.setText(
