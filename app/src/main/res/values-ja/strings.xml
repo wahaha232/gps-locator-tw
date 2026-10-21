@@ -293,4 +293,14 @@
     <string name="update_check_failed">アップデートを確認できません。接続を確認してください。</string>
     <string name="update_checksum_failed">ダウンロードしたファイルの検証に失敗したため破棄しました。</string>
     <string name="update_allow_install">アップデートをインストールするには、次の画面でこのアプリに不明なアプリのインストールを許可し、もう一度「アップデートを確認」を実行してください。</string>
+    <string name="update_check_now">今すぐ確認</string>
+    <string name="update_interval_title">自動確認の間隔</string>
+    <string name="update_interval_current">自動確認: %1$s</string>
+    <string name="update_interval_launch">起動するたび</string>
+    <string name="update_interval_6h">6 時間ごと</string>
+    <string name="update_interval_daily">毎日</string>
+    <string name="update_interval_3d">3 日ごと</string>
+    <string name="update_interval_weekly">毎週</string>
+    <string name="update_interval_never">自動確認しない（手動のみ）</string>
+    <string name="update_interval_saved">設定しました: %1$s</string>
 </resources>

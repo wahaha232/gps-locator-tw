@@ -293,4 +293,14 @@
     <string name="update_check_failed">無法檢查更新，請確認網路連線。</string>
     <string name="update_checksum_failed">下載的檔案驗證失敗，已丟棄。</string>
     <string name="update_allow_install">要安裝更新，請在接下來的畫面允許本 App 安裝未知應用程式，再重新按一次「檢查更新」。</string>
+    <string name="update_check_now">立即檢查</string>
+    <string name="update_interval_title">自動檢查更新的間隔</string>
+    <string name="update_interval_current">自動檢查：%1$s</string>
+    <string name="update_interval_launch">每次開啟 App</string>
+    <string name="update_interval_6h">每 6 小時</string>
+    <string name="update_interval_daily">每天</string>
+    <string name="update_interval_3d">每 3 天</string>
+    <string name="update_interval_weekly">每週</string>
+    <string name="update_interval_never">不自動檢查（只手動）</string>
+    <string name="update_interval_saved">已設定：%1$s</string>
 </resources>

@@ -303,4 +303,14 @@
     <string name="update_check_failed">No se pudo buscar actualizaciones. Revisa tu conexión.</string>
     <string name="update_checksum_failed">El archivo descargado no superó la verificación y se descartó.</string>
     <string name="update_allow_install">Para instalar actualizaciones, permite que esta app instale apps desconocidas en la siguiente pantalla y vuelve a pulsar Buscar actualizaciones.</string>
+    <string name="update_check_now">Buscar ahora</string>
+    <string name="update_interval_title">Intervalo de búsqueda automática</string>
+    <string name="update_interval_current">Búsqueda automática: %1$s</string>
+    <string name="update_interval_launch">Cada vez que se abre</string>
+    <string name="update_interval_6h">Cada 6 horas</string>
+    <string name="update_interval_daily">Cada día</string>
+    <string name="update_interval_3d">Cada 3 días</string>
+    <string name="update_interval_weekly">Cada semana</string>
+    <string name="update_interval_never">Nunca (solo manual)</string>
+    <string name="update_interval_saved">Guardado: %1$s</string>
 </resources>

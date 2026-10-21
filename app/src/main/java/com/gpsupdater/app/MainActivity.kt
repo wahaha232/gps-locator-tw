@@ -679,7 +679,7 @@ class MainActivity : AppCompatActivity() {
                     9 -> showMockLocationSettings()
                     10 -> openAccessibilitySettings()
                     11 -> openDeveloperOptions()
-                    12 -> checkForUpdate(silent = false)
+                    12 -> showUpdateSettings()
                 }
             }
             .setNegativeButton(R.string.close, null)
@@ -689,13 +689,56 @@ class MainActivity : AppCompatActivity() {
     private val updateExecutor = java.util.concurrent.Executors.newSingleThreadExecutor()
     private val updateCancelled = java.util.concurrent.atomic.AtomicBoolean(false)
 
-    /** 每天最多自動查一次；沒有新版就完全不打擾。 */
+    /**
+     * 依使用者設定的間隔在啟動時自動查一次（預設每天）。沒有新版完全不打擾；有新版才跳出「可更新」提示。
+     * 間隔 0＝每次開啟、負數＝不自動檢查（只能手動）。
+     */
     private fun maybeAutoCheckUpdate() {
         val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+        val hours = preferences.getInt(KEY_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS)
+        if (hours < 0) return
         val now = System.currentTimeMillis()
-        if (now - preferences.getLong(KEY_LAST_UPDATE_CHECK, 0L) < UPDATE_CHECK_INTERVAL_MS) return
+        if (hours > 0 && now - preferences.getLong(KEY_LAST_UPDATE_CHECK, 0L) < hours * 60 * 60 * 1000L) return
         preferences.edit().putLong(KEY_LAST_UPDATE_CHECK, now).apply()
         checkForUpdate(silent = true)
+    }
+
+    private fun updateIntervalOptions(): List<Pair<Int, String>> = listOf(
+        0 to getString(R.string.update_interval_launch),
+        6 to getString(R.string.update_interval_6h),
+        24 to getString(R.string.update_interval_daily),
+        72 to getString(R.string.update_interval_3d),
+        168 to getString(R.string.update_interval_weekly),
+        -1 to getString(R.string.update_interval_never),
+    )
+
+    /** 「檢查更新」：可以立即手動檢查，也可以設定自動檢查的間隔。 */
+    private fun showUpdateSettings() {
+        val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+        val hours = preferences.getInt(KEY_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS)
+        val label = updateIntervalOptions().firstOrNull { it.first == hours }?.second ?: getString(R.string.update_interval_daily)
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.check_update)
+            .setMessage(getString(R.string.update_interval_current, label))
+            .setNegativeButton(R.string.close, null)
+            .setNeutralButton(R.string.update_interval_title) { _, _ -> showUpdateIntervalDialog() }
+            .setPositiveButton(R.string.update_check_now) { _, _ -> checkForUpdate(silent = false) }
+            .show()
+    }
+
+    private fun showUpdateIntervalDialog() {
+        val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+        val options = updateIntervalOptions()
+        val current = options.indexOfFirst { it.first == preferences.getInt(KEY_UPDATE_INTERVAL_HOURS, DEFAULT_UPDATE_INTERVAL_HOURS) }
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.update_interval_title)
+            .setSingleChoiceItems(options.map { it.second }.toTypedArray(), current) { dialog, which ->
+                preferences.edit().putInt(KEY_UPDATE_INTERVAL_HOURS, options[which].first).apply()
+                dialog.dismiss()
+                showMessage(getString(R.string.update_interval_saved, options[which].second))
+            }
+            .setNegativeButton(R.string.cancel, null)
+            .show()
     }
 
     private fun checkForUpdate(silent: Boolean) {
@@ -1904,7 +1947,8 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_TEAM_TEMPLATE_FAVORITE_IDS = "team_template_favorite_ids"
         private const val STATE_TEAM_TEMPLATE_ROUTE_IDS = "team_template_route_ids"
         private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
-        private const val UPDATE_CHECK_INTERVAL_MS = 24 * 60 * 60 * 1000L
+        private const val KEY_UPDATE_INTERVAL_HOURS = "update_interval_hours"
+        private const val DEFAULT_UPDATE_INTERVAL_HOURS = 24
         private const val TRAIL_MIN_STEP_METERS = 2.0
         private const val TRAIL_MAX_POINTS = 5000
     }

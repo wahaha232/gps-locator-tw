@@ -299,4 +299,14 @@
     <string name="update_check_failed">Could not check for updates. Check your connection.</string>
     <string name="update_checksum_failed">The downloaded file failed verification and was discarded.</string>
     <string name="update_allow_install">To install updates, allow this app to install unknown apps on the next screen, then run Check for updates again.</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_interval_title">Automatic check interval</string>
+    <string name="update_interval_current">Automatic check: %1$s</string>
+    <string name="update_interval_launch">Every launch</string>
+    <string name="update_interval_6h">Every 6 hours</string>
+    <string name="update_interval_daily">Daily</string>
+    <string name="update_interval_3d">Every 3 days</string>
+    <string name="update_interval_weekly">Weekly</string>
+    <string name="update_interval_never">Never (manual only)</string>
+    <string name="update_interval_saved">Saved: %1$s</string>
 </resources>
