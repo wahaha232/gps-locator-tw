@@ -66,6 +66,17 @@ android {
     }
 
     signingConfigs {
+        // 固定的 debug 簽章：雲端 CI 每次都是全新的機器，沒有金鑰就會產生隨機的 debug 簽章，
+        // 新版 APK 就無法覆蓋安裝舊版。CI 以 Secret 還原金鑰並設定 GPSLOC_DEBUG_KEYSTORE_PATH；
+        // 本機沒設定就維持 Android 預設的 debug 金鑰（~/.android/debug.keystore），行為不變。
+        System.getenv("GPSLOC_DEBUG_KEYSTORE_PATH")?.let { path ->
+            getByName("debug") {
+                storeFile = file(path)
+                storePassword = System.getenv("GPSLOC_DEBUG_KEYSTORE_PASSWORD") ?: "android"
+                keyAlias = System.getenv("GPSLOC_DEBUG_KEY_ALIAS") ?: "androiddebugkey"
+                keyPassword = System.getenv("GPSLOC_DEBUG_KEY_PASSWORD") ?: "android"
+            }
+        }
         if (hasUploadSigning) {
             create("upload") {
                 storeFile = rootProject.file(uploadStoreFile.get())
