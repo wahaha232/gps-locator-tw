@@ -189,12 +189,32 @@
         android:paddingEnd="20dp"
         android:paddingBottom="20dp">
 
-        <View
-            android:layout_width="36dp"
-            android:layout_height="4dp"
-            android:layout_gravity="center_horizontal"
-            android:layout_marginBottom="12dp"
-            android:background="@drawable/bg_handle" />
+        <LinearLayout
+            android:id="@+id/panelHandle"
+            android:layout_width="match_parent"
+            android:layout_height="32dp"
+            android:layout_marginBottom="6dp"
+            android:background="?attr/selectableItemBackgroundBorderless"
+            android:clickable="true"
+            android:contentDescription="@string/panel_collapse"
+            android:focusable="true"
+            android:gravity="center"
+            android:orientation="horizontal">
+
+            <View
+                android:layout_width="36dp"
+                android:layout_height="4dp"
+                android:background="@drawable/bg_handle" />
+
+            <ImageView
+                android:id="@+id/panelToggleIcon"
+                android:layout_width="18dp"
+                android:layout_height="18dp"
+                android:layout_marginStart="6dp"
+                android:importantForAccessibility="no"
+                android:rotation="180"
+                android:src="@drawable/ic_arrow_up" />
+        </LinearLayout>
 
         <LinearLayout
             android:layout_width="match_parent"
@@ -313,6 +333,13 @@
             </LinearLayout>
         </LinearLayout>
 
+        <!-- 收合時隱藏：設定與座標；狀態列、播放控制與開始／停止保留。 -->
+        <LinearLayout
+            android:id="@+id/panelDetails"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="vertical">
+
         <com.google.android.material.button.MaterialButton
             android:id="@+id/setupMockLocationButton"
             style="@style/Widget.GpsUpdater.Button.Tonal"
@@ -380,7 +407,9 @@
                     android:textSize="15sp" />
             </com.google.android.material.textfield.TextInputLayout>
         </LinearLayout>
+        </LinearLayout>
 
+        <!-- 開始／停止按鈕保持可見，收合時仍可操作。 -->
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"

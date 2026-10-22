@@ -10,11 +10,13 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.content.pm.PackageManager
+import android.graphics.Point
 import android.location.LocationManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.os.Looper
+import android.os.SystemClock
 import android.provider.Settings
 import android.util.Patterns
 import android.view.View
@@ -56,6 +58,9 @@ import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.location.MockLocationSetupPolicy
 import com.gpsupdater.app.location.MockLocationSetupStep
 import com.gpsupdater.app.location.MockLocationService
+import com.gpsupdater.app.map.MapFollowPolicy
+import com.gpsupdater.app.map.OsmdroidConfiguration
+import com.gpsupdater.app.map.TrailDecimator
 import com.gpsupdater.app.model.Coordinates
 import com.gpsupdater.app.util.BoundedIo
 import com.gpsupdater.app.product.EntitlementRepository
@@ -217,6 +222,8 @@ class MainActivity : AppCompatActivity() {
             when (intent?.getStringExtra(MockLocationService.EXTRA_STATUS)) {
                 MockLocationService.STATUS_RUNNING -> {
                     binding.playbackPanel.visibility = View.GONE
+                    setPanelDetailsCollapsed(false)
+                    clearSimulationMarker()
                     updateServiceState(ServiceState.RUNNING)
                     showMessage(
                         if (binding.startButton.text == getString(R.string.update_mock)) {
@@ -229,6 +236,8 @@ class MainActivity : AppCompatActivity() {
 
                 MockLocationService.STATUS_STOPPED -> {
                     binding.playbackPanel.visibility = View.GONE
+                    setPanelDetailsCollapsed(false)
+                    clearSimulationMarker()
                     updateServiceState(ServiceState.STOPPED)
                     if (pendingLocalDataClear) clearLocalTestData()
                 }
@@ -238,11 +247,15 @@ class MainActivity : AppCompatActivity() {
                 }
                 MockLocationService.STATUS_ROUTE_COMPLETED -> {
                     binding.playbackPanel.visibility = View.GONE
+                    setPanelDetailsCollapsed(false)
+                    clearSimulationMarker()
                     updateServiceState(ServiceState.STOPPED)
                     showMessage(getString(R.string.route_completed))
                 }
                 MockLocationService.STATUS_ERROR -> {
                     binding.playbackPanel.visibility = View.GONE
+                    setPanelDetailsCollapsed(false)
+                    clearSimulationMarker()
                     updateServiceState(ServiceState.ERROR)
                     showMessage(
                         intent.getStringExtra(MockLocationService.EXTRA_MESSAGE)
@@ -261,11 +274,11 @@ class MainActivity : AppCompatActivity() {
         pendingTeamTemplateRouteIds = savedInstanceState
             ?.getStringArrayList(STATE_TEAM_TEMPLATE_ROUTE_IDS)
             ?.toSet()
-        Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
         Configuration.getInstance().load(
             this,
             getSharedPreferences("osmdroid", MODE_PRIVATE),
         )
+        OsmdroidConfiguration.configure()
 
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
@@ -312,7 +325,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        mapActive = true
         binding.map.onResume()
+        refreshMapAfterResume()
         updateServiceState(
             if (MockLocationPreferences.isActive(this)) ServiceState.RUNNING
             else ServiceState.STOPPED,
@@ -321,12 +336,16 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onPause() {
+        mapActive = false
+        binding.map.removeCallbacks(trailInvalidateRunnable)
         selectedCoordinates()?.let { MockLocationPreferences.saveCoordinates(this, it) }
         binding.map.onPause()
         super.onPause()
     }
 
     override fun onStop() {
+        mapActive = false
+        binding.map.removeCallbacks(trailInvalidateRunnable)
         if (receiverRegistered) {
             unregisterReceiver(statusReceiver)
             receiverRegistered = false
@@ -335,6 +354,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onDestroy() {
+        binding.map.removeCallbacks(trailInvalidateRunnable)
         cloudSyncClient?.close()
         geocoder.close()
         updateCancelled.set(true)
@@ -444,6 +464,8 @@ class MainActivity : AppCompatActivity() {
             startService(MockLocationService.stopIntent(this))
             MockLocationPreferences.setActive(this, false)
             lockHintShown = false
+            setPanelDetailsCollapsed(false)
+            clearSimulationMarker()
             updateServiceState(ServiceState.STOPPED)
             showMessage(getString(R.string.mock_stopped))
         }
@@ -517,9 +539,9 @@ class MainActivity : AppCompatActivity() {
                 setOnMarkerClickListener { _, _ -> true }
             }.also { binding.map.overlays.add(it) }
         }
-        binding.centerPin.visibility = if (locked) View.INVISIBLE else View.VISIBLE
+        binding.centerPin.visibility = if (locked || simulationMarker != null) View.INVISIBLE else View.VISIBLE
         binding.myLocationButton.setText(if (locked) R.string.return_to_lock else R.string.my_location_label)
-        binding.map.invalidate()
+        if (mapActive) binding.map.invalidate()
     }
 
     /** 固定位置模擬進行中：座標欄鎖定，不隨地圖拖曳改變。 */
@@ -601,6 +623,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun configureFloatingControls() {
         configurePlaybackControls()
+        binding.panelHandle.setOnClickListener {
+            setPanelDetailsCollapsed(!panelDetailsCollapsed)
+        }
+        setPanelDetailsCollapsed(false)
         binding.zoomInButton.setOnClickListener { binding.map.controller.zoomIn() }
         binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
         binding.controlPanel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
@@ -626,6 +652,21 @@ class MainActivity : AppCompatActivity() {
                 bottomMargin = panelHeight + dp(16)
             }
         }
+    }
+
+    /** 收合底部面板時只留狀態列與播放控制，讓地圖保留約 2/3 畫面。 */
+    private fun setPanelDetailsCollapsed(collapsed: Boolean) {
+        panelDetailsCollapsed = collapsed
+        if (collapsed) {
+            binding.latitudeInput.clearFocus()
+            binding.longitudeInput.clearFocus()
+            hideKeyboard()
+        }
+        binding.panelDetails.visibility = if (collapsed) View.GONE else View.VISIBLE
+        binding.panelToggleIcon.rotation = if (collapsed) 0f else 180f
+        binding.panelHandle.contentDescription = getString(
+            if (collapsed) R.string.panel_expand else R.string.panel_collapse,
+        )
     }
 
     private fun openDeveloperOptions(
@@ -1833,39 +1874,174 @@ class MainActivity : AppCompatActivity() {
     private var simulationLatitude = Double.NaN
     private var simulationLongitude = Double.NaN
 
+    // App 在前景時才更新地圖；背景時模擬服務照常運作，回到前景再一次補畫。
+    private var mapActive = false
+    private var lastFollowPanMs = 0L
+    private var lastTrailInvalidateMs = 0L
+
     // 路線播放時在地圖上畫出已走過的軌跡；播放結束後保留，下一次開始播放才清掉。
+    // simulationTrailPoints 保留完整點列（不丟舊點）；畫面用的 Polyline 太長時抽稀。
     private var simulationTrail: Polyline? = null
     private val simulationTrailPoints = ArrayList<GeoPoint>()
+    private var trailPointsSinceRebuild = 0
+    private var simulationMarker: org.osmdroid.views.overlay.Marker? = null
+    private var panelDetailsCollapsed = false
+
+    private val trailInvalidateRunnable = Runnable {
+        if (!mapActive) return@Runnable
+        lastTrailInvalidateMs = SystemClock.elapsedRealtime()
+        binding.map.invalidate()
+    }
 
     private fun clearSimulationTrail() {
         simulationTrailPoints.clear()
+        trailPointsSinceRebuild = 0
         simulationTrail?.let { binding.map.overlays.remove(it) }
         simulationTrail = null
-        binding.map.invalidate()
+        clearSimulationMarker()
+        requestTrailRedraw(force = true)
     }
 
     private fun appendSimulationTrail(lat: Double, lon: Double) {
         val point = GeoPoint(lat, lon)
         val last = simulationTrailPoints.lastOrNull()
-        // 暫停或停留時位置不動，不重複加點；上限避免超長路線佔用記憶體。
+        // 暫停或停留時位置不動，不重複加點；完整點列不設上限，避免長路線的舊段落消失。
         if (last != null && last.distanceToAsDouble(point) < TRAIL_MIN_STEP_METERS) return
-        if (simulationTrailPoints.size >= TRAIL_MAX_POINTS) simulationTrailPoints.removeAt(0)
         simulationTrailPoints += point
-        val trail = simulationTrail ?: Polyline(binding.map).apply {
+        trailPointsSinceRebuild++
+        if (!mapActive) return
+
+        val trailWasCreated = simulationTrail == null
+        val trail = ensureSimulationTrail()
+        val needsDecimation = simulationTrailPoints.size > TRAIL_DISPLAY_MAX_POINTS &&
+            trailPointsSinceRebuild >= TRAIL_REBUILD_EVERY_POINTS
+        if (trailWasCreated || needsDecimation) {
+            // 新建立或累積到需要抽稀時才整條重設；其餘情況只 addPoint。
+            val displayed = if (simulationTrailPoints.size > TRAIL_DISPLAY_MAX_POINTS) {
+                TrailDecimator.decimate(simulationTrailPoints, TRAIL_DISPLAY_MAX_POINTS)
+            } else {
+                simulationTrailPoints
+            }
+            trail.setPoints(ArrayList(displayed))
+            trailPointsSinceRebuild = 0
+        } else {
+            trail.addPoint(point)
+        }
+        requestTrailRedraw()
+    }
+
+    private fun ensureSimulationTrail(): Polyline =
+        simulationTrail ?: Polyline(binding.map).apply {
             outlinePaint.color = getColor(R.color.accent)
             outlinePaint.strokeWidth = dp(5).toFloat()
             outlinePaint.strokeCap = android.graphics.Paint.Cap.ROUND
             simulationTrail = this
             binding.map.overlays.add(this)
         }
-        trail.setPoints(ArrayList(simulationTrailPoints))
+
+    /** 目前模擬位置的大頭針；跟隨時固定大頭針會藏在頂欄下方，改用會跟著座標移動的標記。 */
+    private fun updateSimulationMarker(lat: Double, lon: Double) {
+        if (!mapActive) return
+        val marker = simulationMarker ?: org.osmdroid.views.overlay.Marker(binding.map).apply {
+            icon = ContextCompat.getDrawable(this@MainActivity, R.drawable.ic_map_pin)
+            setAnchor(
+                org.osmdroid.views.overlay.Marker.ANCHOR_CENTER,
+                org.osmdroid.views.overlay.Marker.ANCHOR_BOTTOM,
+            )
+            setOnMarkerClickListener { _, _ -> true }
+            simulationMarker = this
+            binding.map.overlays.add(this)
+        }
+        marker.position = GeoPoint(lat, lon)
+        binding.centerPin.visibility = View.INVISIBLE
+        requestTrailRedraw()
+    }
+
+    private fun clearSimulationMarker() {
+        simulationMarker?.let { binding.map.overlays.remove(it) }
+        simulationMarker = null
+        refreshLockMarker()
+    }
+
+    /** 回到前景時用完整點列補畫一次；長軌跡只抽稀顯示，不會丟掉舊點。 */
+    private fun rebuildSimulationTrailForMap() {
+        if (!mapActive || simulationTrailPoints.isEmpty()) return
+        val displayed = if (simulationTrailPoints.size > TRAIL_DISPLAY_MAX_POINTS) {
+            TrailDecimator.decimate(simulationTrailPoints, TRAIL_DISPLAY_MAX_POINTS)
+        } else {
+            simulationTrailPoints
+        }
+        ensureSimulationTrail().setPoints(ArrayList(displayed))
+        trailPointsSinceRebuild = 0
+    }
+
+    private fun requestTrailRedraw(force: Boolean = false) {
+        if (!mapActive) return
+        val now = SystemClock.elapsedRealtime()
+        val elapsed = now - lastTrailInvalidateMs
+        if (force || elapsed >= TRAIL_REDRAW_INTERVAL_MS) {
+            lastTrailInvalidateMs = now
+            binding.map.removeCallbacks(trailInvalidateRunnable)
+            binding.map.invalidate()
+        } else {
+            binding.map.removeCallbacks(trailInvalidateRunnable)
+            binding.map.postDelayed(trailInvalidateRunnable, TRAIL_REDRAW_INTERVAL_MS - elapsed)
+        }
+    }
+
+    /** 回到前景：補畫軌跡，跟隨開啟時把鏡頭帶回目前模擬位置（只移動一次，不改縮放）。 */
+    private fun refreshMapAfterResume() {
+        // 背景期間服務仍會把最新位置寫進偏好設定；回到前景先用它補上目前位置。
+        val routeActive = MockLocationPreferences.activeRouteId(this) != null
+        if (routeActive) {
+            val current = MockLocationPreferences.coordinates(this)
+            simulationLatitude = current.latitude
+            simulationLongitude = current.longitude
+            appendSimulationTrail(current.latitude, current.longitude)
+            updateSimulationMarker(current.latitude, current.longitude)
+        } else if (binding.playbackPanel.visibility == View.VISIBLE) {
+            // 背景期間路線已結束，回到前景把殘留的播放面板收起。
+            binding.playbackPanel.visibility = View.GONE
+            setPanelDetailsCollapsed(false)
+            clearSimulationMarker()
+        }
+        rebuildSimulationTrailForMap()
+        if (routeActive && followSimulation && !simulationLatitude.isNaN() && !simulationLongitude.isNaN()) {
+            binding.map.controller.animateTo(GeoPoint(simulationLatitude, simulationLongitude))
+            lastFollowPanMs = SystemClock.elapsedRealtime()
+        }
+        lastTrailInvalidateMs = SystemClock.elapsedRealtime()
         binding.map.invalidate()
+    }
+
+    /** 跟隨模式只在這一瞬間的大頭針進入外圍 15% 時平移，避免每秒移動鏡頭。 */
+    private fun followSimulationPosition(lat: Double, lon: Double) {
+        if (!mapActive) return
+        if (binding.map.width <= 0 || binding.map.height <= 0) return
+        val point = GeoPoint(lat, lon)
+        val screenPoint = Point()
+        binding.map.projection.toPixels(point, screenPoint)
+        if (!MapFollowPolicy.shouldRecenter(
+                screenPoint.x.toFloat(),
+                screenPoint.y.toFloat(),
+                binding.root.width,
+                binding.root.height,
+                MAP_FOLLOW_EDGE_FRACTION,
+            )
+        ) {
+            return
+        }
+        val now = SystemClock.elapsedRealtime()
+        if (now - lastFollowPanMs < MAP_FOLLOW_PAN_COOLDOWN_MS) return
+        lastFollowPanMs = now
+        binding.map.controller.animateTo(point)
     }
 
     private fun setFollowSimulation(follow: Boolean) {
         followSimulation = follow
         binding.playbackFollowButton.setText(if (follow) R.string.playback_follow_on else R.string.playback_follow_off)
         if (follow && !simulationLatitude.isNaN() && !simulationLongitude.isNaN()) {
+            lastFollowPanMs = SystemClock.elapsedRealtime()
             binding.map.controller.animateTo(GeoPoint(simulationLatitude, simulationLongitude))
         }
     }
@@ -1884,6 +2060,8 @@ class MainActivity : AppCompatActivity() {
         binding.startButton.setText(R.string.switch_to_static)
         if (panelWasHidden) {
             followSimulation = true
+            lastFollowPanMs = 0L
+            setPanelDetailsCollapsed(true)
             clearSimulationTrail()
         }
         val lat = intent.getDoubleExtra(MockLocationService.EXTRA_POSITION_LAT, Double.NaN)
@@ -1892,11 +2070,12 @@ class MainActivity : AppCompatActivity() {
             simulationLatitude = lat
             simulationLongitude = lon
             appendSimulationTrail(lat, lon)
+            updateSimulationMarker(lat, lon)
             // 跟隨開啟時，座標欄顯示「模擬走到的位置」，不是地圖碰巧停在哪裡；關閉跟隨（自己拖地圖）才改回地圖中央。
             if (followSimulation && !binding.latitudeInput.hasFocus() && !binding.longitudeInput.hasFocus()) {
                 showCoordinates(Coordinates(lat, lon))
             }
-            if (followSimulation) binding.map.controller.animateTo(GeoPoint(lat, lon))
+            if (followSimulation) followSimulationPosition(lat, lon)
         }
         binding.playbackFollowButton.setText(
             if (followSimulation) R.string.playback_follow_on else R.string.playback_follow_off,
@@ -2044,6 +2223,10 @@ class MainActivity : AppCompatActivity() {
         private const val KEY_UPDATE_INTERVAL_HOURS = "update_interval_hours"
         private const val DEFAULT_UPDATE_INTERVAL_HOURS = 24
         private const val TRAIL_MIN_STEP_METERS = 2.0
-        private const val TRAIL_MAX_POINTS = 5000
+        private const val TRAIL_DISPLAY_MAX_POINTS = TrailDecimator.DEFAULT_MAX_POINTS
+        private const val TRAIL_REBUILD_EVERY_POINTS = 500
+        private const val TRAIL_REDRAW_INTERVAL_MS = 1000L
+        private const val MAP_FOLLOW_EDGE_FRACTION = MapFollowPolicy.DEFAULT_EDGE_FRACTION
+        private const val MAP_FOLLOW_PAN_COOLDOWN_MS = MAP_ANIMATION_MS
     }
 }

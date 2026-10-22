@@ -44,8 +44,8 @@ android {
         applicationId = "com.gpsupdater.app"
         minSdk = 26
         targetSdk = 35
-        versionCode = 18
-        versionName = "2.0.0-tw.15"
+        versionCode = 19
+        versionName = "2.0.0-tw.16"
 
         buildConfigField("String", "TILE_URL_TEMPLATE", tileUrlTemplate.get().asBuildConfigString())
         buildConfigField("String", "GEOCODING_BASE_URL", geocodingBaseUrl.get().asBuildConfigString())

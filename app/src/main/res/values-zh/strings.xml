@@ -262,6 +262,8 @@
     <string name="zoom_out">缩小地图</string>
     <string name="playback_follow_on">跟随：开</string>
     <string name="playback_follow_off">跟随：关</string>
+    <string name="panel_collapse">收起面板</string>
+    <string name="panel_expand">展开面板</string>
     <string name="switch_to_static">改为固定位置</string>
     <string name="replace_route_title">停止当前路线？</string>
     <string name="replace_route_message">路线正在播放。改为固定位置会停止这条路线，并把位置固定在画面上的坐标。</string>

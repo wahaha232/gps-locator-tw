@@ -19,6 +19,7 @@ import androidx.core.view.updatePadding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.google.android.material.snackbar.Snackbar
 import com.gpsupdater.app.BuildConfig
+import com.gpsupdater.app.map.OsmdroidConfiguration
 import com.gpsupdater.app.R
 import com.gpsupdater.app.databinding.ActivityRouteEditorBinding
 import com.gpsupdater.app.databinding.DialogWaypointBinding
@@ -29,7 +30,6 @@ import com.gpsupdater.app.geocoding.MapServiceConfiguration
 import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.atomic.AtomicBoolean
-import org.osmdroid.config.Configuration
 import org.osmdroid.events.MapEventsReceiver
 import org.osmdroid.util.BoundingBox
 import org.osmdroid.util.GeoPoint
@@ -145,7 +145,7 @@ class RouteEditorActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        Configuration.getInstance().userAgentValue = BuildConfig.APPLICATION_ID
+        OsmdroidConfiguration.configure()
         binding = ActivityRouteEditorBinding.inflate(layoutInflater)
         setContentView(binding.root)
         configureSystemBars()

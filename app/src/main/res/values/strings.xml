@@ -268,6 +268,8 @@
     <string name="zoom_out">Zoom out</string>
     <string name="playback_follow_on">Follow: on</string>
     <string name="playback_follow_off">Follow: off</string>
+    <string name="panel_collapse">Collapse panel</string>
+    <string name="panel_expand">Expand panel</string>
     <string name="switch_to_static">Switch to fixed spot</string>
     <string name="replace_route_title">Stop the current route?</string>
     <string name="replace_route_message">A route is playing. Switching to a fixed spot stops the route and keeps the location at the coordinates on screen.</string>
