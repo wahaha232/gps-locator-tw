@@ -27,6 +27,12 @@
     <string name="invalid_coordinates">有効な座標を入力してください：緯度 -90～90、経度 -180～180</string>
     <string name="location_permission_required">フォアグラウンドサービスには位置情報の権限が必要です</string>
     <string name="current_location_unavailable">現在、端末の位置を取得できません</string>
+    <string name="startup_location_mock_hint">A simulation is running, so the map shows the simulated location.</string>
+    <string name="startup_location_permission_missing">Location permission is missing, so the map stays at the last location.</string>
+    <string name="grant_location_permission">Grant</string>
+    <string name="startup_location_services_disabled">Location services are turned off</string>
+    <string name="open_location_settings">Open</string>
+    <string name="startup_location_timeout">The current location is temporarily unavailable, so the map stays at the last location.</string>
     <string name="mock_permission_title">仮の現在地アプリの設定が必要です</string>
     <string name="mock_permission_message">開発者向けオプションで「仮の現在地情報アプリを選択」を開き、「GPSロケーター」を選択してから戻ってください。</string>
     <string name="setup_mock_location">仮の現在地を設定</string>

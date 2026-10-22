@@ -27,6 +27,12 @@
     <string name="invalid_coordinates">Introduce coordenadas válidas: latitud de -90 a 90 y longitud de -180 a 180</string>
     <string name="location_permission_required">El servicio en primer plano necesita permiso de ubicación</string>
     <string name="current_location_unavailable">La ubicación del dispositivo no está disponible</string>
+    <string name="startup_location_mock_hint">A simulation is running, so the map shows the simulated location.</string>
+    <string name="startup_location_permission_missing">Location permission is missing, so the map stays at the last location.</string>
+    <string name="grant_location_permission">Grant</string>
+    <string name="startup_location_services_disabled">Location services are turned off</string>
+    <string name="open_location_settings">Open</string>
+    <string name="startup_location_timeout">The current location is temporarily unavailable, so the map stays at the last location.</string>
     <string name="mock_permission_title">Se necesita acceso a la ubicación simulada</string>
     <string name="mock_permission_message">En Opciones de desarrollador, abre «Seleccionar aplicación de ubicación simulada», elige «Localizador GPS» y vuelve aquí.</string>
     <string name="setup_mock_location">Configurar ubicación simulada</string>

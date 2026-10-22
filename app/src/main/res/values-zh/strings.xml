@@ -27,6 +27,12 @@
     <string name="invalid_coordinates">请输入有效经纬度：纬度 -90～90，经度 -180～180</string>
     <string name="location_permission_required">需要位置权限才能启动前台定位服务</string>
     <string name="current_location_unavailable">暂时无法获取手机当前位置</string>
+    <string name="startup_location_mock_hint">A simulation is running, so the map shows the simulated location.</string>
+    <string name="startup_location_permission_missing">Location permission is missing, so the map stays at the last location.</string>
+    <string name="grant_location_permission">Grant</string>
+    <string name="startup_location_services_disabled">Location services are turned off</string>
+    <string name="open_location_settings">Open</string>
+    <string name="startup_location_timeout">The current location is temporarily unavailable, so the map stays at the last location.</string>
     <string name="mock_permission_title">需要开启模拟位置权限</string>
     <string name="mock_permission_message">请在开发者选项的“选择模拟位置信息应用”中选择“GPS 定位器”，然后返回此处。</string>
     <string name="setup_mock_location">设置模拟位置</string>

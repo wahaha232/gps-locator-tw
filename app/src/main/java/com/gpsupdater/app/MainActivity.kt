@@ -49,6 +49,8 @@ import com.gpsupdater.app.geocoding.RegionSearchDialog
 import com.gpsupdater.app.geocoding.MapServiceConfiguration
 import com.gpsupdater.app.history.LocationHistoryEntry
 import com.gpsupdater.app.history.LocationHistoryRepository
+import com.gpsupdater.app.location.LocationHint
+import com.gpsupdater.app.location.LocationHintPolicy
 import com.gpsupdater.app.location.MockLocationAccess
 import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.location.MockLocationSetupPolicy
@@ -99,6 +101,9 @@ class MainActivity : AppCompatActivity() {
     private var pendingLocalDataClear = false
     private var pendingTeamTemplateFavoriteIds: Set<String>? = null
     private var pendingTeamTemplateRouteIds: Set<String>? = null
+    // 啟動時的定位提示（含逾時）同一次啟動只跳一次。
+    private var startupLocationHintShown = false
+    private var startupPermissionRequestPending = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions(),
@@ -114,8 +119,16 @@ class MainActivity : AppCompatActivity() {
             }
 
             PermissionAction.CENTER_ON_DEVICE -> {
-                if (hasLocationPermission()) centerOnDeviceLocation()
-                else showMessage(getString(R.string.location_permission_required))
+                when {
+                    hasLocationPermission() && startupPermissionRequestPending ->
+                        centerOnCurrentLocationAtStart()
+
+                    hasLocationPermission() -> centerOnDeviceLocation()
+                    startupPermissionRequestPending ->
+                        showStartupLocationHint(LocationHint.MISSING_PERMISSION)
+
+                    else -> showMessage(getString(R.string.location_permission_required))
+                }
             }
 
             PermissionAction.START_ROUTE -> {
@@ -131,6 +144,7 @@ class MainActivity : AppCompatActivity() {
         }
         pendingPermissionAction = null
         pendingRouteId = null
+        startupPermissionRequestPending = false
     }
 
     private val routeEditorLauncher = registerForActivityResult(
@@ -1444,9 +1458,14 @@ class MainActivity : AppCompatActivity() {
     /**
      * 把地圖移到手機「現在的真實位置」。
      * 先用夠新的最後已知位置（2 分鐘內）；沒有就要一次新的定位（最多等 10 秒）。模擬位置不算真實位置，會被排除。
-     * [quiet] 為 true（啟動時自動定位）時，失敗不跳訊息。
+     * [quiet] 為 true（啟動時自動定位）時，失敗改由 [showStartupLocationHint] 顯示簡短提示，並在同一次啟動只提示一次。
      */
     private fun centerOnDeviceLocation(quiet: Boolean = false) {
+        // 模擬開著時 Android 只會回傳模擬位置，讀不到真實位置；手動按「目前位置」時直接說明原因。
+        if (!quiet && MockLocationPreferences.isActive(this)) {
+            showMessage(getString(R.string.current_location_blocked_by_mock))
+            return
+        }
         val locationManager = getSystemService(LocationManager::class.java)
         val lastKnown = runCatching {
             locationManager.getProviders(true)
@@ -1463,9 +1482,21 @@ class MainActivity : AppCompatActivity() {
         val providers = listOf(LocationManager.GPS_PROVIDER, LocationManager.NETWORK_PROVIDER)
             .filter { runCatching { locationManager.isProviderEnabled(it) }.getOrDefault(false) }
         fun giveUp() {
+            if (quiet) {
+                // 啟動時無聲失敗會讓使用者以為定位壞了；依當下狀態顯示原因（取不到新位置就算逾時）。
+                showStartupLocationHint(
+                    LocationHintPolicy.resolve(
+                        isMocking = MockLocationPreferences.isActive(this),
+                        hasPermission = hasLocationPermission(),
+                        locationServicesEnabled = providers.isNotEmpty(),
+                        timedOut = true,
+                    ),
+                )
+                lastKnown?.let(::moveToDevice)
+                return
+            }
             when {
                 lastKnown != null -> moveToDevice(lastKnown)
-                quiet -> Unit
                 MockLocationPreferences.isActive(this) -> showMessage(getString(R.string.current_location_blocked_by_mock))
                 else -> showMessage(getString(R.string.current_location_unavailable))
             }
@@ -1518,18 +1549,73 @@ class MainActivity : AppCompatActivity() {
     }
 
     /**
-     * 啟動時自動定位到現在位置：模擬進行中就維持模擬的位置；還沒授權定位的話只在「第一次啟動」問一次，之後不再自動跳權限視窗。
+     * 啟動時自動定位到現在位置：模擬進行中就維持模擬的位置，並提示地圖顯示的是模擬位置；
+     * 還沒授權定位的話只在「第一次啟動」問一次，之後以 Snackbar 提示可手動授權。
      */
     private fun centerOnCurrentLocationAtStart() {
-        if (MockLocationPreferences.isActive(this)) return
-        if (hasLocationPermission()) {
-            centerOnDeviceLocation(quiet = true)
-            return
+        val hint = LocationHintPolicy.resolve(
+            isMocking = MockLocationPreferences.isActive(this),
+            hasPermission = hasLocationPermission(),
+            locationServicesEnabled = isLocationServiceEnabled(),
+            timedOut = false,
+        )
+        when (hint) {
+            LocationHint.MOCK_SIMULATION, LocationHint.LOCATION_SERVICES_DISABLED ->
+                showStartupLocationHint(hint)
+
+            LocationHint.MISSING_PERMISSION -> {
+                val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
+                if (preferences.getBoolean(KEY_STARTUP_LOCATION_ASKED, false)) {
+                    showStartupLocationHint(hint)
+                } else {
+                    preferences.edit().putBoolean(KEY_STARTUP_LOCATION_ASKED, true).apply()
+                    startupPermissionRequestPending = true
+                    requestPermissions(PermissionAction.CENTER_ON_DEVICE)
+                }
+            }
+
+            LocationHint.NONE -> centerOnDeviceLocation(quiet = true)
+            LocationHint.TIMEOUT -> Unit
         }
-        val preferences = getSharedPreferences(ONBOARDING_PREFERENCES, MODE_PRIVATE)
-        if (preferences.getBoolean(KEY_STARTUP_LOCATION_ASKED, false)) return
-        preferences.edit().putBoolean(KEY_STARTUP_LOCATION_ASKED, true).apply()
-        requestPermissions(PermissionAction.CENTER_ON_DEVICE)
+    }
+
+    /** 顯示啟動定位的提示；同一次啟動只顯示一次，避免逾時和權限結果重複跳出。 */
+    private fun showStartupLocationHint(hint: LocationHint) {
+        if (hint == LocationHint.NONE || startupLocationHintShown) return
+        startupLocationHintShown = true
+        when (hint) {
+            LocationHint.MOCK_SIMULATION ->
+                showMessage(getString(R.string.startup_location_mock_hint))
+
+            LocationHint.MISSING_PERMISSION -> showMessage(
+                getString(R.string.startup_location_permission_missing),
+                R.string.grant_location_permission,
+            ) { requestPermissions(PermissionAction.CENTER_ON_DEVICE) }
+
+            LocationHint.LOCATION_SERVICES_DISABLED -> showMessage(
+                getString(R.string.startup_location_services_disabled),
+                R.string.open_location_settings,
+            ) { openLocationSettings() }
+
+            LocationHint.TIMEOUT -> showMessage(getString(R.string.startup_location_timeout))
+            LocationHint.NONE -> Unit
+        }
+    }
+
+    private fun isLocationServiceEnabled(): Boolean {
+        val locationManager = getSystemService(LocationManager::class.java)
+        return runCatching {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                locationManager.isLocationEnabled
+            } else {
+                locationManager.isProviderEnabled(LocationManager.GPS_PROVIDER) ||
+                    locationManager.isProviderEnabled(LocationManager.NETWORK_PROVIDER)
+            }
+        }.getOrDefault(false)
+    }
+
+    private fun openLocationSettings() {
+        runCatching { startActivity(Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)) }
     }
 
     private fun applyInputCoordinates(showError: Boolean = true): Boolean {
@@ -1900,10 +1986,17 @@ class MainActivity : AppCompatActivity() {
         binding.root.postDelayed({ refreshLockMarker() }, 600L)
     }
 
-    private fun showMessage(message: String) {
-        Snackbar.make(binding.controlPanel, message, Snackbar.LENGTH_LONG)
+    private fun showMessage(
+        message: String,
+        actionTextResId: Int? = null,
+        action: (() -> Unit)? = null,
+    ) {
+        val snackbar = Snackbar.make(binding.controlPanel, message, Snackbar.LENGTH_LONG)
             .setAnchorView(binding.controlPanel)
-            .show()
+        if (actionTextResId != null && action != null) {
+            snackbar.setAction(actionTextResId) { action() }
+        }
+        snackbar.show()
     }
 
     private fun hideKeyboard() {

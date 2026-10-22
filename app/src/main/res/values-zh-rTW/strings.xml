@@ -27,6 +27,12 @@
     <string name="invalid_coordinates">請輸入有效的經緯度：緯度 -90～90，經度 -180～180</string>
     <string name="location_permission_required">需要位置權限才能啟動前景定位服務</string>
     <string name="current_location_unavailable">暫時無法取得手機目前位置</string>
+    <string name="startup_location_mock_hint">模擬中，地圖顯示的是模擬位置</string>
+    <string name="startup_location_permission_missing">沒有定位權限，地圖停在上次的位置</string>
+    <string name="grant_location_permission">授權</string>
+    <string name="startup_location_services_disabled">手機定位已關閉</string>
+    <string name="open_location_settings">開啟</string>
+    <string name="startup_location_timeout">暫時取不到目前位置，地圖停在上次的位置</string>
     <string name="mock_permission_title">需要開啟模擬位置權限</string>
     <string name="mock_permission_message">請在開發人員選項的「選取模擬位置應用程式」中選擇「GPS 定位器」，然後回到這裡。</string>
     <string name="setup_mock_location">設定模擬位置</string>
@@ -260,7 +266,7 @@
     <string name="replace_route_title">停止目前的路線？</string>
     <string name="replace_route_message">路線正在播放。改為固定位置會停止這條路線，並把位置固定在畫面上的座標。</string>
     <string name="my_location_label">目前位置</string>
-    <string name="current_location_blocked_by_mock">模擬位置正在執行，無法取得真實位置。請先停止模擬。</string>
+    <string name="current_location_blocked_by_mock">模擬中無法取得真實位置，請先停止模擬</string>
     <string name="random_route_generate">隨機生成軌跡</string>
     <string name="random_route_points_hint">點數（2～500）</string>
     <string name="random_route_radius_hint">範圍半徑（公尺，50～50000）</string>

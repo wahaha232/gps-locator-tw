@@ -27,6 +27,12 @@
     <string name="invalid_coordinates">Enter valid coordinates: latitude -90 to 90 and longitude -180 to 180</string>
     <string name="location_permission_required">Location permission is required for the foreground service</string>
     <string name="current_location_unavailable">The device location is not currently available</string>
+    <string name="startup_location_mock_hint">A simulation is running, so the map shows the simulated location.</string>
+    <string name="startup_location_permission_missing">Location permission is missing, so the map stays at the last location.</string>
+    <string name="grant_location_permission">Grant</string>
+    <string name="startup_location_services_disabled">Location services are turned off</string>
+    <string name="open_location_settings">Open</string>
+    <string name="startup_location_timeout">The current location is temporarily unavailable, so the map stays at the last location.</string>
     <string name="mock_permission_title">Mock location access required</string>
     <string name="mock_permission_message">In Developer options, open “Select mock location app” and choose “GPS Locator”, then return here.</string>
     <string name="setup_mock_location">Set up mock location</string>
