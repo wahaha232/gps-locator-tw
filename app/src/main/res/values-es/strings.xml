@@ -253,6 +253,14 @@
     <string name="playback_info_total">Reproducido %1$s / %2$s · faltan %3$s · %4$d km/h</string>
     <string name="playback_info_open">Reproducido %1$s · %2$d km/h</string>
     <string name="playback_paused">En pausa</string>
+    <string name="interrupted_run_title">Registro interrumpido</string>
+    <string name="interrupted_run_message">El registro «%1$s» se interrumpió el %2$s. ¿Continuar desde el punto de interrupción, guardarlo o eliminarlo sin registrar?</string>
+    <string name="interrupted_run_continue">Continuar registrando</string>
+    <string name="interrupted_run_save">Guardar</string>
+    <string name="interrupted_run_delete">Eliminar sin registrar</string>
+    <string name="interrupted_run_saved">Registro interrumpido guardado</string>
+    <string name="interrupted_run_deleted">Registro interrumpido eliminado</string>
+    <string name="interrupted_run_resume_failed">No se encontró la ruta original; el registro interrumpido se guardó</string>
     <string name="route_importing">Importando y simplificando la ruta…</string>
     <string name="route_import_simplified">Ruta importada: %1$d puntos simplificados a %2$d puntos</string>
     <string name="route_import_cancelled">Importación cancelada</string>

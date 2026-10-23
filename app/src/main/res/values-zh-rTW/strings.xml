@@ -243,6 +243,14 @@
     <string name="playback_info_total">已播放 %1$s / %2$s · 剩餘 %3$s · %4$d 公里/小時</string>
     <string name="playback_info_open">已播放 %1$s · %2$d 公里/小時</string>
     <string name="playback_paused">已暫停</string>
+    <string name="interrupted_run_title">中斷的紀錄</string>
+    <string name="interrupted_run_message">「%1$s」在 %2$s 中斷。要從中斷點繼續記錄、存檔，還是不記錄直接刪除？</string>
+    <string name="interrupted_run_continue">繼續記錄</string>
+    <string name="interrupted_run_save">存檔</string>
+    <string name="interrupted_run_delete">不記錄直接刪除</string>
+    <string name="interrupted_run_saved">中斷紀錄已存檔</string>
+    <string name="interrupted_run_deleted">中斷紀錄已刪除</string>
+    <string name="interrupted_run_resume_failed">找不到原路線，已將中斷紀錄存檔</string>
     <string name="route_importing">正在匯入並簡化路線…</string>
     <string name="route_import_simplified">路線已匯入：原本 %1$d 個點，已簡化為 %2$d 個點</string>
     <string name="route_import_cancelled">已取消匯入</string>

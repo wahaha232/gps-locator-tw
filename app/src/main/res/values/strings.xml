@@ -249,6 +249,14 @@
     <string name="playback_info_total">Played %1$s / %2$s · %3$s left · %4$d km/h</string>
     <string name="playback_info_open">Played %1$s · %2$d km/h</string>
     <string name="playback_paused">Paused</string>
+    <string name="interrupted_run_title">Interrupted record</string>
+    <string name="interrupted_run_message">The record “%1$s” was interrupted at %2$s. Continue from the interruption point, save it, or delete it without recording?</string>
+    <string name="interrupted_run_continue">Continue recording</string>
+    <string name="interrupted_run_save">Save</string>
+    <string name="interrupted_run_delete">Delete without recording</string>
+    <string name="interrupted_run_saved">Interrupted record saved</string>
+    <string name="interrupted_run_deleted">Interrupted record deleted</string>
+    <string name="interrupted_run_resume_failed">The original route was not found; the interrupted record was saved</string>
     <string name="route_importing">Importing and simplifying the route…</string>
     <string name="route_import_simplified">Route imported: %1$d points simplified to %2$d points</string>
     <string name="route_import_cancelled">Import cancelled</string>

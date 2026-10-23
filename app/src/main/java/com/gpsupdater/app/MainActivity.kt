@@ -43,6 +43,10 @@ import com.gpsupdater.app.databinding.DialogJoystickBinding
 import com.gpsupdater.app.databinding.DialogCloudSyncBinding
 import com.gpsupdater.app.databinding.DialogSaveFavoriteBinding
 import com.gpsupdater.app.databinding.ItemFavoriteBinding
+import com.gpsupdater.app.enterprise.EnterpriseReportGenerator
+import com.gpsupdater.app.enterprise.SimulationOutcome
+import com.gpsupdater.app.enterprise.SimulationRun
+import com.gpsupdater.app.enterprise.SimulationRunRepository
 import com.gpsupdater.app.favorites.FavoriteLocation
 import com.gpsupdater.app.favorites.FavoriteLocationRepository
 import com.gpsupdater.app.geocoding.GeocodingResult
@@ -58,6 +62,8 @@ import com.gpsupdater.app.location.MockLocationPreferences
 import com.gpsupdater.app.location.MockLocationSetupPolicy
 import com.gpsupdater.app.location.MockLocationSetupStep
 import com.gpsupdater.app.location.MockLocationService
+import com.gpsupdater.app.location.PlaybackState
+import com.gpsupdater.app.location.PlaybackStateRepository
 import com.gpsupdater.app.map.MapFollowPolicy
 import com.gpsupdater.app.map.OsmdroidConfiguration
 import com.gpsupdater.app.map.TrailDecimator
@@ -67,6 +73,7 @@ import com.gpsupdater.app.product.EntitlementRepository
 import com.gpsupdater.app.product.ProductFeature
 import com.gpsupdater.app.privacy.LocalTestDataCleaner
 import com.gpsupdater.app.routes.RouteEditorActivity
+import com.gpsupdater.app.routes.RouteRepository
 import com.gpsupdater.app.update.UpdateInfo
 import com.gpsupdater.app.update.UpdateManager
 import com.gpsupdater.app.update.UpdateVerificationException
@@ -104,6 +111,7 @@ class MainActivity : AppCompatActivity() {
     private var pendingRouteId: String? = null
     private var selectedPlaceName: String? = null
     private var pendingLocalDataClear = false
+    private var interruptedRunDialogVisible = false
     private var pendingTeamTemplateFavoriteIds: Set<String>? = null
     private var pendingTeamTemplateRouteIds: Set<String>? = null
     // 啟動時的定位提示（含逾時）同一次啟動只跳一次。
@@ -222,6 +230,7 @@ class MainActivity : AppCompatActivity() {
             when (intent?.getStringExtra(MockLocationService.EXTRA_STATUS)) {
                 MockLocationService.STATUS_RUNNING -> {
                     binding.playbackPanel.visibility = View.GONE
+                    binding.mapPauseButton.visibility = View.GONE
                     setPanelDetailsCollapsed(false)
                     clearSimulationMarker()
                     updateServiceState(ServiceState.RUNNING)
@@ -236,6 +245,7 @@ class MainActivity : AppCompatActivity() {
 
                 MockLocationService.STATUS_STOPPED -> {
                     binding.playbackPanel.visibility = View.GONE
+                    binding.mapPauseButton.visibility = View.GONE
                     setPanelDetailsCollapsed(false)
                     clearSimulationMarker()
                     updateServiceState(ServiceState.STOPPED)
@@ -247,6 +257,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 MockLocationService.STATUS_ROUTE_COMPLETED -> {
                     binding.playbackPanel.visibility = View.GONE
+                    binding.mapPauseButton.visibility = View.GONE
                     setPanelDetailsCollapsed(false)
                     clearSimulationMarker()
                     updateServiceState(ServiceState.STOPPED)
@@ -254,6 +265,7 @@ class MainActivity : AppCompatActivity() {
                 }
                 MockLocationService.STATUS_ERROR -> {
                     binding.playbackPanel.visibility = View.GONE
+                    binding.mapPauseButton.visibility = View.GONE
                     setPanelDetailsCollapsed(false)
                     clearSimulationMarker()
                     updateServiceState(ServiceState.ERROR)
@@ -285,19 +297,25 @@ class MainActivity : AppCompatActivity() {
 
         configureSystemBars()
         configureMap()
-        if (savedInstanceState == null) {
+        if (savedInstanceState == null && interruptedActiveRun() == null) {
             centerOnCurrentLocationAtStart()
-            maybeAutoCheckUpdate()
         }
         configureInputs()
         configureActions()
         configureFloatingControls()
         updateServiceState(
-            if (MockLocationPreferences.isActive(this)) ServiceState.RUNNING
-            else ServiceState.STOPPED,
+            if (MockLocationService.isRunning && MockLocationPreferences.isActive(this)) {
+                ServiceState.RUNNING
+            } else {
+                ServiceState.STOPPED
+            },
         )
         updateMockLocationSetup()
-        maybeShowSetupGuide()
+        val recoveryShown = maybeShowInterruptedRunDialog()
+        if (!recoveryShown) {
+            maybeShowSetupGuide()
+            if (savedInstanceState == null) maybeAutoCheckUpdate()
+        }
     }
 
     override fun onSaveInstanceState(outState: Bundle) {
@@ -329,10 +347,14 @@ class MainActivity : AppCompatActivity() {
         binding.map.onResume()
         refreshMapAfterResume()
         updateServiceState(
-            if (MockLocationPreferences.isActive(this)) ServiceState.RUNNING
-            else ServiceState.STOPPED,
+            if (MockLocationService.isRunning && MockLocationPreferences.isActive(this)) {
+                ServiceState.RUNNING
+            } else {
+                ServiceState.STOPPED
+            },
         )
         updateMockLocationSetup()
+        if (!interruptedRunDialogVisible) maybeShowInterruptedRunDialog()
     }
 
     override fun onPause() {
@@ -615,10 +637,107 @@ class MainActivity : AppCompatActivity() {
         if (preferences.getBoolean(KEY_SETUP_GUIDE_SHOWN, false)) return
         preferences.edit().putBoolean(KEY_SETUP_GUIDE_SHOWN, true).apply()
         binding.root.post {
-            if (!isFinishing && currentMockLocationSetupStep() != MockLocationSetupStep.READY) {
+            if (!isFinishing && !interruptedRunDialogVisible &&
+                currentMockLocationSetupStep() != MockLocationSetupStep.READY
+            ) {
                 showMockLocationDialog()
             }
         }
+    }
+
+    /**
+     * App 重新開啟時，如果發現上次的模擬沒有正常結束，詢問要續跑、存檔或刪除。
+     * 服務與 App 同一個 process；只有在服務確實不在執行中時才視為中斷。
+     */
+    private fun maybeShowInterruptedRunDialog(): Boolean {
+        val run = interruptedActiveRun() ?: return false
+        val state = PlaybackStateRepository(this).state()
+        val interruptedAt = state?.updatedAt?.takeIf { it > 0L } ?: run.startedAt
+        val timeText = DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT)
+            .format(Date(interruptedAt))
+        interruptedRunDialogVisible = true
+        MaterialAlertDialogBuilder(this)
+            .setTitle(R.string.interrupted_run_title)
+            .setMessage(getString(R.string.interrupted_run_message, run.name, timeText))
+            .setCancelable(false)
+            .setPositiveButton(R.string.interrupted_run_continue) { _, _ ->
+                resumeInterruptedRun(run)
+            }
+            .setNeutralButton(R.string.interrupted_run_save) { _, _ ->
+                saveInterruptedRun(run)
+            }
+            .setNegativeButton(R.string.interrupted_run_delete) { _, _ ->
+                deleteInterruptedRun(run)
+            }
+            .setOnDismissListener { interruptedRunDialogVisible = false }
+            .show()
+        return true
+    }
+
+    private fun interruptedActiveRun(): SimulationRun? =
+        if (MockLocationService.isRunning) null else SimulationRunRepository(this).active()
+
+    private fun resumeInterruptedRun(run: SimulationRun) {
+        val state = PlaybackStateRepository(this).state()
+        if (run.routeId != null) {
+            val route = RouteRepository(this).find(run.routeId)
+            if (route == null) {
+                saveInterruptedRun(run, notify = false)
+                showMessage(getString(R.string.interrupted_run_resume_failed))
+                return
+            }
+            ContextCompat.startForegroundService(
+                this,
+                MockLocationService.resumeInterruptedRouteIntent(this, route.id),
+            )
+        } else {
+            val coordinates = state?.coordinates ?: MockLocationPreferences.coordinates(this)
+            ContextCompat.startForegroundService(
+                this,
+                MockLocationService.resumeInterruptedStaticIntent(this, coordinates),
+            )
+        }
+        updateServiceState(ServiceState.STARTING)
+    }
+
+    private fun saveInterruptedRun(run: SimulationRun, notify: Boolean = true) {
+        val state = PlaybackStateRepository(this).state()
+        val coordinates = state?.coordinates ?: MockLocationPreferences.coordinates(this)
+        val finishedAt = (state?.updatedAt?.takeIf { it > 0L } ?: run.startedAt)
+            .coerceAtLeast(run.startedAt)
+        SimulationRunRepository(this).finishActive(SimulationOutcome.STOPPED, coordinates, finishedAt)
+        clearInterruptedRunState()
+        runCatching { EnterpriseReportGenerator(this).writeLatest() }
+        updateServiceState(ServiceState.STOPPED)
+        if (notify) showMessage(getString(R.string.interrupted_run_saved))
+    }
+
+    private fun deleteInterruptedRun(run: SimulationRun) {
+        val historyRepository = LocationHistoryRepository(this)
+        val historyId = run.historyId ?: historyRepository.all().firstOrNull { entry ->
+            entry.mode == run.mode &&
+                entry.routeId == run.routeId &&
+                entry.name == run.name &&
+                kotlin.math.abs(entry.createdAt - run.startedAt) <= INTERRUPTED_HISTORY_MATCH_MS
+        }?.id
+        historyId?.let(historyRepository::delete)
+        SimulationRunRepository(this).delete(run.id)
+        clearInterruptedRunState()
+        runCatching { EnterpriseReportGenerator(this).writeLatest() }
+        updateServiceState(ServiceState.STOPPED)
+        showMessage(getString(R.string.interrupted_run_deleted))
+    }
+
+    private fun clearInterruptedRunState() {
+        MockLocationPreferences.setActive(this, false)
+        PlaybackStateRepository(this).clear()
+        // 存檔或刪除後不要把上一次中斷的路線／大頭針留在畫面上。
+        simulationLatitude = Double.NaN
+        simulationLongitude = Double.NaN
+        clearSimulationTrail()
+        binding.playbackPanel.visibility = View.GONE
+        binding.mapPauseButton.visibility = View.GONE
+        setPanelDetailsCollapsed(false)
     }
 
     private fun configureFloatingControls() {
@@ -627,6 +746,7 @@ class MainActivity : AppCompatActivity() {
             setPanelDetailsCollapsed(!panelDetailsCollapsed)
         }
         setPanelDetailsCollapsed(false)
+        binding.mapPauseButton.setOnClickListener { togglePlaybackPause() }
         binding.zoomInButton.setOnClickListener { binding.map.controller.zoomIn() }
         binding.zoomOutButton.setOnClickListener { binding.map.controller.zoomOut() }
         binding.controlPanel.addOnLayoutChangeListener { _, _, top, _, bottom, _, _, _, _ ->
@@ -638,6 +758,9 @@ class MainActivity : AppCompatActivity() {
             // 不能再用「垂直置中」，螢幕比較矮或面板比較高時會和「目前位置」重疊。
             binding.zoomControls.updateLayoutParams<FrameLayout.LayoutParams> {
                 bottomMargin = panelHeight + dp(12) + dp(52) + dp(12)
+            }
+            binding.mapPauseButton.updateLayoutParams<FrameLayout.LayoutParams> {
+                bottomMargin = panelHeight + dp(12) + dp(52) + dp(12) + dp(105) + dp(12)
             }
             // 地圖只佔底部面板上方的空間：圖釘（地圖中央）永遠看得到，座標也永遠是畫面上看到的位置；
             // 面板在小螢幕或播放路線時變高，也不會再蓋住圖釘。改變大小前記住中心，之後放回去，座標不會因此跳動。
@@ -1595,7 +1718,7 @@ class MainActivity : AppCompatActivity() {
      */
     private fun centerOnCurrentLocationAtStart() {
         val hint = LocationHintPolicy.resolve(
-            isMocking = MockLocationPreferences.isActive(this),
+            isMocking = MockLocationPreferences.isActive(this) && MockLocationService.isRunning,
             hasPermission = hasLocationPermission(),
             locationServicesEnabled = isLocationServiceEnabled(),
             timedOut = false,
@@ -2002,6 +2125,7 @@ class MainActivity : AppCompatActivity() {
         } else if (binding.playbackPanel.visibility == View.VISIBLE) {
             // 背景期間路線已結束，回到前景把殘留的播放面板收起。
             binding.playbackPanel.visibility = View.GONE
+            binding.mapPauseButton.visibility = View.GONE
             setPanelDetailsCollapsed(false)
             clearSimulationMarker()
         }
@@ -2096,7 +2220,8 @@ class MainActivity : AppCompatActivity() {
         }
         if (playbackPaused) info += " · " + getString(R.string.playback_paused)
         binding.playbackInfo.text = info
-        binding.playbackPauseButton.setText(if (playbackPaused) R.string.playback_resume else R.string.playback_pause)
+        binding.mapPauseButton.visibility = View.VISIBLE
+        updatePlaybackPauseUi()
         binding.playbackRateButton.text = getString(R.string.playback_rate, playbackRate)
     }
 
@@ -2111,16 +2236,31 @@ class MainActivity : AppCompatActivity() {
 
     private fun configurePlaybackControls() {
         binding.playbackFollowButton.setOnClickListener { setFollowSimulation(!followSimulation) }
-        binding.playbackPauseButton.setOnClickListener {
-            startService(
-                if (playbackPaused) MockLocationService.resumeIntent(this) else MockLocationService.pauseIntent(this),
-            )
-        }
+        binding.playbackPauseButton.setOnClickListener { togglePlaybackPause() }
         binding.playbackRateButton.setOnClickListener {
             val rates = intArrayOf(1, 2, 4, 8)
             val next = rates[(rates.indexOf(playbackRate) + 1).mod(rates.size)]
             startService(MockLocationService.rateIntent(this, next))
         }
+    }
+
+    private fun togglePlaybackPause() {
+        startService(
+            if (playbackPaused) MockLocationService.resumeIntent(this)
+            else MockLocationService.pauseIntent(this),
+        )
+    }
+
+    private fun updatePlaybackPauseUi() {
+        binding.playbackPauseButton.setText(
+            if (playbackPaused) R.string.playback_resume else R.string.playback_pause,
+        )
+        binding.mapPauseButton.setImageResource(
+            if (playbackPaused) R.drawable.ic_play else R.drawable.ic_pause,
+        )
+        binding.mapPauseButton.contentDescription = getString(
+            if (playbackPaused) R.string.playback_resume else R.string.playback_pause,
+        )
     }
 
     private fun updateServiceState(state: ServiceState) {
@@ -2221,6 +2361,7 @@ class MainActivity : AppCompatActivity() {
         private const val STATE_TEAM_TEMPLATE_ROUTE_IDS = "team_template_route_ids"
         private const val KEY_LAST_UPDATE_CHECK = "last_update_check"
         private const val KEY_UPDATE_INTERVAL_HOURS = "update_interval_hours"
+        private const val INTERRUPTED_HISTORY_MATCH_MS = 10_000L
         private const val DEFAULT_UPDATE_INTERVAL_HOURS = 24
         private const val TRAIL_MIN_STEP_METERS = 2.0
         private const val TRAIL_DISPLAY_MAX_POINTS = TrailDecimator.DEFAULT_MAX_POINTS

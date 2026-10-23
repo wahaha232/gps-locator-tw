@@ -5,6 +5,7 @@ import com.gpsupdater.app.enterprise.SimulationRunRepository
 import com.gpsupdater.app.favorites.FavoriteLocationRepository
 import com.gpsupdater.app.history.LocationHistoryRepository
 import com.gpsupdater.app.location.MockLocationPreferences
+import com.gpsupdater.app.location.PlaybackStateRepository
 import com.gpsupdater.app.routes.RouteRepository
 import java.io.File
 
@@ -16,6 +17,7 @@ class LocalTestDataCleaner(context: Context) {
         RouteRepository(applicationContext).clear()
         LocationHistoryRepository(applicationContext).clear()
         SimulationRunRepository(applicationContext).clear()
+        PlaybackStateRepository(applicationContext).clear()
         MockLocationPreferences.clear(applicationContext)
         reportsDirectory()?.let { directory ->
             check(directory.deleteRecursively()) { "Could not delete local Enterprise reports" }

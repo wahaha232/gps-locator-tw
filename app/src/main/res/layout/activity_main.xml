@@ -162,6 +162,20 @@
         app:iconPadding="8dp"
         app:iconTint="@color/brand" />
 
+    <com.google.android.material.floatingactionbutton.FloatingActionButton
+        android:id="@+id/mapPauseButton"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_gravity="end|bottom"
+        android:layout_marginEnd="16dp"
+        android:contentDescription="@string/playback_pause"
+        android:visibility="gone"
+        app:backgroundTint="@color/surface"
+        app:borderWidth="0dp"
+        app:elevation="6dp"
+        app:srcCompat="@drawable/ic_pause"
+        app:tint="@color/brand" />
+
     <TextView
         android:id="@+id/attributionText"
         android:layout_width="wrap_content"

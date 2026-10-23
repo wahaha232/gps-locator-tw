@@ -15,6 +15,18 @@ data class RoutePosition(
 )
 
 class RouteSimulator(private val route: SimulationRoute) {
+    /** 可持久化的播放進度；App 被中止後可從同一個位置繼續。 */
+    data class Snapshot(
+        val currentWaypointIndex: Int,
+        val distanceIntoLeg: Double,
+        val distanceCompletedInLap: Double,
+        val stopRemainingSeconds: Double,
+        val elapsedSeconds: Double,
+        val lap: Int,
+        val complete: Boolean,
+        val timeIntoLeg: Double,
+    )
+
     private val speedMetersPerSecond = route.speedKph / 3.6
 
     /** 依時間戳記播放：每一段走多久由 GPX 決定，速度因此隨段落變化（含原地停留）。 */
@@ -75,6 +87,38 @@ class RouteSimulator(private val route: SimulationRoute) {
     private var complete = false
 
     fun current(): RoutePosition = buildPosition()
+
+    fun snapshot(): Snapshot = Snapshot(
+        currentWaypointIndex = currentWaypointIndex,
+        distanceIntoLeg = distanceIntoLeg,
+        distanceCompletedInLap = distanceCompletedInLap,
+        stopRemainingSeconds = stopRemainingSeconds,
+        elapsedSeconds = elapsedSeconds,
+        lap = lap,
+        complete = complete,
+        timeIntoLeg = timeIntoLeg,
+    )
+
+    /** 還原先前的播放進度；資料不合法時回傳 false，讓呼叫端安全地從頭開始。 */
+    fun restore(snapshot: Snapshot): Boolean {
+        if (route.waypoints.isEmpty()) return false
+        if (snapshot.currentWaypointIndex !in route.waypoints.indices) return false
+        if (snapshot.lap < 0 || snapshot.elapsedSeconds < 0.0) return false
+        if (!snapshot.distanceIntoLeg.isFinite() || snapshot.distanceIntoLeg < 0.0) return false
+        if (!snapshot.distanceCompletedInLap.isFinite() || snapshot.distanceCompletedInLap < 0.0) return false
+        if (!snapshot.stopRemainingSeconds.isFinite() || snapshot.stopRemainingSeconds < 0.0) return false
+        if (!snapshot.timeIntoLeg.isFinite() || snapshot.timeIntoLeg < 0.0) return false
+        currentWaypointIndex = snapshot.currentWaypointIndex
+        distanceIntoLeg = snapshot.distanceIntoLeg
+        distanceCompletedInLap = snapshot.distanceCompletedInLap
+        stopRemainingSeconds = snapshot.stopRemainingSeconds
+        elapsedSeconds = snapshot.elapsedSeconds
+        lap = snapshot.lap
+        complete = snapshot.complete
+        timeIntoLeg = snapshot.timeIntoLeg
+        effectiveSpeed = speedMetersPerSecond * speedFactor(elapsedSeconds)
+        return true
+    }
 
     fun advance(deltaSeconds: Double): RoutePosition {
         require(deltaSeconds.isFinite() && deltaSeconds >= 0)

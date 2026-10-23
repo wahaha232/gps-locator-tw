@@ -29,7 +29,7 @@ class LocationHistoryRepository(context: Context) {
         coordinates: Coordinates,
         mode: HistoryMode,
         routeId: String? = null,
-    ) {
+    ): String {
         val entry = LocationHistoryEntry(
             id = UUID.randomUUID().toString(),
             name = name.trim().ifBlank {
@@ -41,6 +41,7 @@ class LocationHistoryRepository(context: Context) {
             createdAt = System.currentTimeMillis(),
         )
         persist((listOf(entry) + all()).take(MAX_HISTORY))
+        return entry.id
     }
 
     fun delete(id: String) {

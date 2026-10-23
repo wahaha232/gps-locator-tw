@@ -80,6 +80,38 @@ class MockLocationService : Service() {
             return START_STICKY
         }
 
+        if (intent?.action == ACTION_RESUME_INTERRUPTED_ROUTE) {
+            val routeId = intent.getStringExtra(EXTRA_ROUTE_ID)
+            val route = routeId?.let { RouteRepository(this).find(it) }
+            if (route == null) {
+                reportError(getString(R.string.route_not_found))
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            startRouteMocking(
+                route,
+                recordHistory = false,
+                resumeState = PlaybackStateRepository(this).state(),
+            )
+            return START_STICKY
+        }
+
+        if (intent?.action == ACTION_RESUME_INTERRUPTED_STATIC) {
+            val requestedCoordinates = coordinatesFrom(intent)
+            if (requestedCoordinates == null) {
+                reportError(getString(R.string.invalid_coordinates))
+                stopSelf()
+                return START_NOT_STICKY
+            }
+            startMocking(
+                requestedCoordinates,
+                label = null,
+                recordHistory = false,
+                resumeActiveRun = true,
+            )
+            return START_STICKY
+        }
+
         if (intent?.action == ACTION_START_ROUTE) {
             val routeId = intent.getStringExtra(EXTRA_ROUTE_ID)
             val route = routeId?.let { RouteRepository(this).find(it) }
@@ -102,6 +134,11 @@ class MockLocationService : Service() {
                 recordHistory = intent.getBooleanExtra(EXTRA_RECORD_HISTORY, true),
             )
         } else if (MockLocationPreferences.isActive(this)) {
+            if (SimulationRunRepository(this).active() != null) {
+                // 有中斷的 RUNNING 紀錄：不要在背景自行從頭播放或結案，留給 App 詢問使用者。
+                stopSelf()
+                return START_NOT_STICKY
+            }
             val route = MockLocationPreferences.activeRouteId(this)
                 ?.let { RouteRepository(this).find(it) }
             if (route != null) startRouteMocking(route, recordHistory = false)
@@ -121,7 +158,9 @@ class MockLocationService : Service() {
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onDestroy() {
-        stopMocking()
+        // 正常停止／完成／錯誤都已先結案；走到這裡還沒結案代表是被系統中止，保留 RUNNING 讓 App 詢問。
+        stopMocking(finishRun = false)
+        isRunning = false
         super.onDestroy()
     }
 
@@ -129,13 +168,19 @@ class MockLocationService : Service() {
         newCoordinates: Coordinates,
         label: String?,
         recordHistory: Boolean,
+        resumeActiveRun: Boolean = false,
     ) {
         cleanupCompleted = false
+        isRunning = true
+        paused = false
+        rate = 1
         val replacedRoute = activeRoute != null
         // 上一個執行（路線或固定點）結束時的位置：必須在存入新座標之前讀。
         // SimulationRunRepository.begin() 會用「新座標」去結案舊的執行紀錄，會讓路線的終點被寫成新位置，所以這裡先用舊位置結案。
         val previousCoordinates = MockLocationPreferences.coordinates(this)
-        SimulationRunRepository(this).finishActive(SimulationOutcome.STOPPED, previousCoordinates)
+        if (!resumeActiveRun) {
+            SimulationRunRepository(this).finishActive(SimulationOutcome.STOPPED, previousCoordinates)
+        }
         activeRoute = null
         routeSimulator = null
         lastRouteUpdateNanos = 0L
@@ -150,27 +195,31 @@ class MockLocationService : Service() {
             injectLocation(coordinates)
             handler.postDelayed(locationUpdate, UPDATE_INTERVAL_MS)
             MockLocationPreferences.setActive(this, true)
-            if (recordHistory) {
-                LocationHistoryRepository(this).record(
-                    label.orEmpty(),
-                    coordinates,
-                    HistoryMode.STATIC,
-                )
-                SimulationRunRepository(this).begin(
-                    label.orEmpty(),
-                    HistoryMode.STATIC,
-                    coordinates,
-                    routeId = null,
-                )
-            } else if (replacedRoute) {
-                // 舊的執行已在 startMocking 開頭用舊位置結案，這裡只開新的。
-                SimulationRunRepository(this).begin(
-                    "Joystick",
-                    HistoryMode.STATIC,
-                    coordinates,
-                    routeId = null,
-                )
+            if (!resumeActiveRun) {
+                if (recordHistory) {
+                    val historyId = LocationHistoryRepository(this).record(
+                        label.orEmpty(),
+                        coordinates,
+                        HistoryMode.STATIC,
+                    )
+                    SimulationRunRepository(this).begin(
+                        label.orEmpty(),
+                        HistoryMode.STATIC,
+                        coordinates,
+                        routeId = null,
+                        historyId = historyId,
+                    )
+                } else if (replacedRoute) {
+                    // 舊的執行已在 startMocking 開頭用舊位置結案，這裡只開新的。
+                    SimulationRunRepository(this).begin(
+                        "Joystick",
+                        HistoryMode.STATIC,
+                        coordinates,
+                        routeId = null,
+                    )
+                }
             }
+            persistPlaybackState(simulator = null)
             notificationManager().notify(
                 NOTIFICATION_ID,
                 buildNotification(coordinates, starting = false),
@@ -185,13 +234,23 @@ class MockLocationService : Service() {
         }
     }
 
-    private fun startRouteMocking(route: SimulationRoute, recordHistory: Boolean) {
-        paused = false
-        rate = 1
+    private fun startRouteMocking(
+        route: SimulationRoute,
+        recordHistory: Boolean,
+        resumeState: PlaybackState? = null,
+    ) {
         cleanupCompleted = false
+        isRunning = true
         activeRoute = route
-        routeSimulator = RouteSimulator(route)
-        val initialPosition = routeSimulator?.current() ?: return
+        val simulator = RouteSimulator(route)
+        val restored = resumeState
+            ?.takeIf { it.routeId == route.id }
+            ?.snapshot
+            ?.let(simulator::restore) == true
+        paused = if (restored) resumeState!!.paused else false
+        rate = if (restored) resumeState!!.rate.coerceIn(1, 8) else 1
+        routeSimulator = simulator
+        val initialPosition = simulator.current()
         coordinates = initialPosition.coordinates
         lastRouteUpdateNanos = SystemClock.elapsedRealtimeNanos()
         lastNotificationProgress = -1
@@ -202,11 +261,15 @@ class MockLocationService : Service() {
             if (!providersPrepared) prepareProviders()
             acquireWakeLock()
             handler.removeCallbacks(locationUpdate)
-            injectLocation(initialPosition)
+            if (paused) {
+                injectLocation(initialPosition.coordinates, 0f, initialPosition.bearingDegrees)
+            } else {
+                injectLocation(initialPosition)
+            }
             handler.postDelayed(locationUpdate, UPDATE_INTERVAL_MS)
             MockLocationPreferences.setRouteActive(this, route.id)
             if (recordHistory) {
-                LocationHistoryRepository(this).record(
+                val historyId = LocationHistoryRepository(this).record(
                     route.name,
                     coordinates,
                     HistoryMode.ROUTE,
@@ -217,10 +280,12 @@ class MockLocationService : Service() {
                     HistoryMode.ROUTE,
                     coordinates,
                     route.id,
+                    historyId = historyId,
                 )
             }
+            persistPlaybackState(simulator)
             updateRouteNotification(initialPosition)
-            broadcastStatus(STATUS_ROUTE_RUNNING, routeId = route.id, progress = 0.0)
+            broadcastRouteStatus(initialPosition, simulator)
         } catch (_: SecurityException) {
             reportError(getString(R.string.service_failed))
             stopSelf()
@@ -228,6 +293,16 @@ class MockLocationService : Service() {
             reportError(getString(R.string.service_failed))
             stopSelf()
         }
+    }
+
+    private fun persistPlaybackState(simulator: RouteSimulator?) {
+        PlaybackStateRepository(this).save(
+            routeId = activeRoute?.id,
+            snapshot = simulator?.snapshot(),
+            rate = rate,
+            paused = paused,
+            coordinates = coordinates,
+        )
     }
 
     @Suppress("DEPRECATION")
@@ -266,6 +341,7 @@ class MockLocationService : Service() {
         val simulator = routeSimulator
         if (simulator == null) {
             injectLocation(coordinates)
+            persistPlaybackState(simulator = null)
             return true
         }
         val nowNanos = SystemClock.elapsedRealtimeNanos()
@@ -276,6 +352,7 @@ class MockLocationService : Service() {
             val still = simulator.current()
             injectLocation(still.coordinates, 0f, still.bearingDegrees)
             broadcastRouteStatus(still, simulator)
+            persistPlaybackState(simulator)
             return true
         }
         val position = simulator.advance(deltaSeconds * rate)
@@ -295,10 +372,12 @@ class MockLocationService : Service() {
                 coordinates,
             )
             MockLocationPreferences.setActive(this, false)
+            PlaybackStateRepository(this).clear()
             broadcastStatus(STATUS_ROUTE_COMPLETED, routeId = route?.id, progress = 1.0)
             stopSelf()
             return false
         }
+        persistPlaybackState(simulator)
         return true
     }
 
@@ -362,9 +441,10 @@ class MockLocationService : Service() {
         locationManager.setTestProviderLocation(provider, location)
     }
 
-    private fun stopMocking() {
+    private fun stopMocking(finishRun: Boolean = true) {
         if (cleanupCompleted) return
         cleanupCompleted = true
+        isRunning = false
         handler.removeCallbacks(locationUpdate)
         activeRoute = null
         routeSimulator = null
@@ -378,8 +458,13 @@ class MockLocationService : Service() {
         }
         wakeLock?.let { if (it.isHeld) it.release() }
         wakeLock = null
+        if (!finishRun) {
+            stopForeground(STOP_FOREGROUND_REMOVE)
+            return
+        }
         val wasActive = MockLocationPreferences.isActive(this)
         MockLocationPreferences.setActive(this, false)
+        PlaybackStateRepository(this).clear()
         if (wasActive) {
             SimulationRunRepository(this).finishActive(
                 SimulationOutcome.STOPPED,
@@ -507,6 +592,8 @@ class MockLocationService : Service() {
     private fun reportError(message: String) {
         SimulationRunRepository(this).finishActive(SimulationOutcome.FAILED, coordinates)
         MockLocationPreferences.setActive(this, false)
+        PlaybackStateRepository(this).clear()
+        isRunning = false
         broadcastStatus(STATUS_ERROR, message)
     }
 
@@ -524,6 +611,7 @@ class MockLocationService : Service() {
         lastNotificationProgress = -1 // 強制重畫通知（暫停／繼續按鈕要換）
         updateRouteNotification(position)
         broadcastRouteStatus(position, simulator)
+        persistPlaybackState(simulator)
     }
 
     private fun broadcastRouteStatus(position: RoutePosition, simulator: RouteSimulator) {
@@ -564,6 +652,11 @@ class MockLocationService : Service() {
         getSystemService(NotificationManager::class.java)
 
     companion object {
+        /** 服務是否正在進行模擬；App 與服務同一個 process，用這個旗標判斷是否為真正的中斷。 */
+        @Volatile
+        var isRunning: Boolean = false
+            private set
+
         const val ACTION_STATUS = "com.gpsupdater.app.action.STATUS"
         const val EXTRA_STATUS = "status"
         const val EXTRA_MESSAGE = "message"
@@ -584,6 +677,8 @@ class MockLocationService : Service() {
         private const val ACTION_START = "com.gpsupdater.app.action.START"
         private const val ACTION_STOP = "com.gpsupdater.app.action.STOP"
         private const val ACTION_START_ROUTE = "com.gpsupdater.app.action.START_ROUTE"
+        private const val ACTION_RESUME_INTERRUPTED_ROUTE = "com.gpsupdater.app.action.RESUME_INTERRUPTED_ROUTE"
+        private const val ACTION_RESUME_INTERRUPTED_STATIC = "com.gpsupdater.app.action.RESUME_INTERRUPTED_STATIC"
         private const val ACTION_PAUSE = "com.gpsupdater.app.action.PAUSE"
         private const val ACTION_RESUME = "com.gpsupdater.app.action.RESUME"
         private const val ACTION_SET_RATE = "com.gpsupdater.app.action.SET_RATE"
@@ -629,5 +724,16 @@ class MockLocationService : Service() {
             Intent(context, MockLocationService::class.java)
                 .setAction(ACTION_START_ROUTE)
                 .putExtra(EXTRA_ROUTE_ID, routeId)
+
+        fun resumeInterruptedRouteIntent(context: Context, routeId: String): Intent =
+            Intent(context, MockLocationService::class.java)
+                .setAction(ACTION_RESUME_INTERRUPTED_ROUTE)
+                .putExtra(EXTRA_ROUTE_ID, routeId)
+
+        fun resumeInterruptedStaticIntent(context: Context, coordinates: Coordinates): Intent =
+            Intent(context, MockLocationService::class.java)
+                .setAction(ACTION_RESUME_INTERRUPTED_STATIC)
+                .putExtra(EXTRA_LATITUDE, coordinates.latitude)
+                .putExtra(EXTRA_LONGITUDE, coordinates.longitude)
     }
 }

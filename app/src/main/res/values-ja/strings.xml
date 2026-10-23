@@ -243,6 +243,14 @@
     <string name="playback_info_total">再生 %1$s / %2$s · 残り %3$s · %4$d km/h</string>
     <string name="playback_info_open">再生 %1$s · %2$d km/h</string>
     <string name="playback_paused">一時停止中</string>
+    <string name="interrupted_run_title">中断された記録</string>
+    <string name="interrupted_run_message">「%1$s」は %2$s に中断されました。中断地点から記録を続行しますか？保存しますか？記録せず削除しますか？</string>
+    <string name="interrupted_run_continue">記録を続行</string>
+    <string name="interrupted_run_save">保存</string>
+    <string name="interrupted_run_delete">記録せず削除</string>
+    <string name="interrupted_run_saved">中断された記録を保存しました</string>
+    <string name="interrupted_run_deleted">中断された記録を削除しました</string>
+    <string name="interrupted_run_resume_failed">元のルートが見つからないため、中断された記録を保存しました</string>
     <string name="route_importing">ルートを読み込んで簡略化しています…</string>
     <string name="route_import_simplified">ルートを読み込みました：%1$d 点を %2$d 点に簡略化</string>
     <string name="route_import_cancelled">読み込みをキャンセルしました</string>

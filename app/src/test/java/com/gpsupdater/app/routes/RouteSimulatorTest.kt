@@ -84,6 +84,46 @@ class RouteSimulatorTest {
         assertEquals(90f, GeoMath.initialBearingDegrees(start, destination), 0.1f)
     }
 
+    @Test
+    fun snapshot_restoreContinuesFromSamePoint() {
+        val route = route(
+            start = Coordinates(0.0, 0.0),
+            end = Coordinates(1.0, 0.0),
+            speedKph = 36.0,
+        )
+        val original = RouteSimulator(route)
+        original.advance(1_000.0)
+        val expected = original.current()
+
+        val restored = RouteSimulator(route)
+        assertTrue(restored.restore(original.snapshot()))
+        val actual = restored.current()
+
+        assertEquals(expected.coordinates.latitude, actual.coordinates.latitude, 1e-9)
+        assertEquals(expected.coordinates.longitude, actual.coordinates.longitude, 1e-9)
+        assertEquals(expected.progress, actual.progress, 1e-9)
+        assertEquals(expected.elapsedSeconds, actual.elapsedSeconds, 1e-9)
+
+        val nextExpected = original.advance(10.0)
+        val nextActual = restored.advance(10.0)
+        assertEquals(nextExpected.coordinates.latitude, nextActual.coordinates.latitude, 1e-9)
+        assertEquals(nextExpected.coordinates.longitude, nextActual.coordinates.longitude, 1e-9)
+    }
+
+    @Test
+    fun restore_rejectsInvalidSnapshot() {
+        val route = route(
+            start = Coordinates(0.0, 0.0),
+            end = Coordinates(1.0, 0.0),
+            speedKph = 36.0,
+        )
+        val simulator = RouteSimulator(route)
+        val invalid = simulator.snapshot().copy(currentWaypointIndex = 99)
+
+        assertFalse(simulator.restore(invalid))
+        assertEquals(route.waypoints.first().coordinates, simulator.current().coordinates)
+    }
+
     private fun route(
         start: Coordinates,
         end: Coordinates,

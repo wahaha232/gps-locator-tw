@@ -27,6 +27,7 @@ data class SimulationRun(
     val outcome: SimulationOutcome,
     val timeZoneId: String,
     val utcOffsetSeconds: Int?,
+    val historyId: String? = null,
 )
 
 class SimulationRunRepository(context: Context) {
@@ -50,7 +51,13 @@ class SimulationRunRepository(context: Context) {
         preferences.edit().remove(KEY_RUNS).apply()
     }
 
-    fun begin(name: String, mode: HistoryMode, coordinates: Coordinates, routeId: String?): SimulationRun {
+    fun begin(
+        name: String,
+        mode: HistoryMode,
+        coordinates: Coordinates,
+        routeId: String?,
+        historyId: String? = null,
+    ): SimulationRun {
         finishActive(SimulationOutcome.STOPPED, coordinates)
         val startedAt = System.currentTimeMillis()
         val timeZone = TimeZone.getDefault()
@@ -66,18 +73,27 @@ class SimulationRunRepository(context: Context) {
             outcome = SimulationOutcome.RUNNING,
             timeZoneId = timeZone.id,
             utcOffsetSeconds = timeZone.getOffset(startedAt) / 1_000,
+            historyId = historyId,
         )
         persist((listOf(run) + all()).take(MAX_RUNS))
         return run
     }
 
-    fun finishActive(outcome: SimulationOutcome, coordinates: Coordinates) {
+    fun delete(id: String) {
+        persist(all().filterNot { it.id == id })
+    }
+
+    fun finishActive(
+        outcome: SimulationOutcome,
+        coordinates: Coordinates,
+        finishedAt: Long = System.currentTimeMillis(),
+    ) {
         require(outcome != SimulationOutcome.RUNNING)
         val runs = all().toMutableList()
         val index = runs.indexOfFirst { it.outcome == SimulationOutcome.RUNNING }
         if (index < 0) return
         runs[index] = runs[index].copy(
-            finishedAt = System.currentTimeMillis(),
+            finishedAt = finishedAt,
             endCoordinates = coordinates,
             outcome = outcome,
         )
@@ -101,7 +117,8 @@ class SimulationRunRepository(context: Context) {
                     .put("endLongitude", run.endCoordinates?.longitude)
                     .put("outcome", run.outcome.name)
                     .put("timeZoneId", run.timeZoneId)
-                    .put("utcOffsetSeconds", run.utcOffsetSeconds),
+                    .put("utcOffsetSeconds", run.utcOffsetSeconds)
+                    .put("historyId", run.historyId),
             )
         }
         preferences.edit().putString(KEY_RUNS, array.toString()).apply()
@@ -131,6 +148,7 @@ class SimulationRunRepository(context: Context) {
             utcOffsetSeconds = json.optInt("utcOffsetSeconds").takeIf {
                 json.has("utcOffsetSeconds") && !json.isNull("utcOffsetSeconds")
             },
+            historyId = json.optString("historyId").takeIf { it.isNotBlank() && it != "null" },
         )
     }.getOrNull()
 
